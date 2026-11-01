@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Exploración de Chult — Bitácora de Campaña</title>
+  
+  <!-- Tipografías temáticas Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Contenedor Principal de la Aplicación -->
+  <div id="app-root" class="app-layout">
+    
+    <!-- Barra Superior de Navegación -->
+    <header class="top-nav-bar">
+      <div class="nav-branding">
+        <h1 class="nav-title">CHULT</h1>
+        <span class="nav-subtitle">Bitácora de Campaña</span>
+      </div>
+
+      <!-- Indicador de Modo y Botones Principales -->
+      <div class="nav-actions">
+        <div id="mode-status-pill" class="status-pill mode-explore">
+          <span class="status-dot"></span>
+          <span id="mode-text">Modo: Explorar</span>
+        </div>
+
+        <button id="btn-add-pin" class="btn btn-primary" title="Colocar un nuevo marcador en el mapa">
+          <span class="btn-icon">📍</span>
+          <span class="btn-label">+ Añadir Pin</span>
+        </button>
+
+        <button id="btn-measure" class="btn btn-secondary" title="Trazar camino y medir distancias">
+          <span class="btn-icon">📏</span>
+          <span class="btn-label">Camino</span>
+        </button>
+
+        <button id="btn-locate-party" class="btn btn-secondary" title="Ubicar al grupo de aventureros">
+          <span class="btn-icon">⚔️</span>
+          <span class="btn-label">Grupo</span>
+        </button>
+
+        <button id="btn-toggle-sidebar" class="btn btn-secondary" title="Abrir lista y filtros de marcadores">
+          <span class="btn-icon">📜</span>
+          <span class="btn-label">Bitácora</span>
+          <span id="sidebar-counter" class="badge-count">0</span>
+        </button>
+
+        <button id="btn-open-backup" class="btn btn-icon-only" title="Copia de seguridad y configuración">
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- Barra Flotante de Selección Rápida de Ícono (Activa en Modo Añadir) -->
+    <div id="quick-icon-bar" class="quick-icon-bar hidden">
+      <div class="quick-icon-header">
+        <span class="quick-icon-prompt">1. Selecciona el ícono y luego <strong>toca el mapa</strong>:</span>
+        <button id="btn-cancel-add-mode" class="btn-close-subtle" title="Cancelar colocación">✕</button>
+      </div>
+      <div id="quick-icon-list" class="quick-icon-list">
+        <!-- Renderizado dinámicamente con las categorías -->
+      </div>
+    </div>
+
+    <!-- Barra Flotante de Herramienta de Camino / Regla (Activa en Modo Camino) -->
+    <div id="route-control-bar" class="route-control-bar hidden">
+      <div class="route-bar-content">
+        <div class="route-bar-header">
+          <span class="route-bar-badge">🗺️ Camino</span>
+          <div id="route-bar-stats" class="route-bar-stats">
+            <span class="route-stats-hexes"><strong>0</strong> hex</span>
+            <span class="route-stats-sep">•</span>
+            <span class="route-stats-miles"><strong>0</strong> millas</span>
+            <span id="route-stats-steps" class="route-stats-steps">(0 etapas)</span>
+          </div>
+        </div>
+        <div class="route-bar-actions">
+          <button id="btn-undo-route-step" class="btn-route-action" title="Deshacer último paso (Backspace)">
+            <span>↶</span> Deshacer
+          </button>
+          <button id="btn-finish-route" class="btn-route-action btn-route-finish" title="Fijar camino (Doble clic o Enter)">
+            <span>✓</span> Finalizar
+          </button>
+          <button id="btn-clear-route" class="btn-route-action btn-route-clear" title="Borrar camino">
+            <span>🗑️</span> Borrar
+          </button>
+          <button id="btn-close-route-mode" class="btn-close-subtle" title="Cerrar barra">✕</button>
+        </div>
+      </div>
+      <div class="route-bar-hint">
+        <span class="hint-desktop">💡 Clic en cada hexágono para avanzar • <strong>Doble clic</strong> para fijar • Backspace para deshacer</span>
+        <span class="hint-mobile">💡 Toca hexágonos para avanzar • 'Finalizar' o doble toque para fijar</span>
+      </div>
+    </div>
+
+    <!-- Viewport del Mapa (Área de Pan & Zoom) -->
+    <main id="map-viewport" class="map-viewport cursor-grab">
+      <div id="map-container" class="map-container">
+        <img id="map-image" src="MAPS - Chult 2.0 PC - Numerado.png" alt="Mapa de Chult Numerado" draggable="false">
+        <svg id="route-svg" class="route-svg" viewBox="0 0 2816 2048"></svg>
+        <svg id="measure-svg" class="measure-svg" viewBox="0 0 2816 2048"></svg>
+        <div id="markers-layer" class="markers-layer"></div>
+        <div id="party-layer" class="party-layer"></div>
+        <div id="measure-badge" class="measure-badge hidden"></div>
+        <div id="route-badge" class="route-badge hidden"></div>
+      </div>
+
+      <!-- Controles Flotantes de Zoom -->
+      <div class="floating-zoom-controls">
+        <button id="btn-zoom-in" class="zoom-btn" title="Acercar (+)">+</button>
+        <button id="btn-zoom-out" class="zoom-btn" title="Alejar (-)">−</button>
+        <button id="btn-zoom-reset" class="zoom-btn" title="Centrar mapa">⌖</button>
+        <button id="btn-fullscreen" class="zoom-btn" title="Pantalla completa">⛶</button>
+      </div>
+
+      <!-- Indicador inferior de ayuda táctil / ratón -->
+      <div class="map-instruction-toast">
+        <span class="toast-pc">Arrastra para mover • Rueda para zoom • Clic en un pin para ver detalles</span>
+        <span class="toast-mobile">1 dedo para mover • Pellizca para zoom • Toca un pin para ver detalles</span>
+      </div>
+    </main>
+
+    <!-- Barra Lateral Deslizable (Bitácora & Filtros) -->
+    <aside id="sidebar-drawer" class="sidebar-drawer closed">
+      <div class="sidebar-header">
+        <div class="sidebar-title-group">
+          <h2 class="sidebar-title">Bitácora de Marcadores</h2>
+          <span id="total-markers-count" class="sidebar-subtitle">0 descubrimientos</span>
+        </div>
+        <button id="btn-close-sidebar" class="btn-close-subtle" title="Cerrar bitácora">✕</button>
+      </div>
+
+      <!-- Buscador -->
+      <div class="sidebar-search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="input-search-markers" placeholder="Buscar por título, notas, día..." autocomplete="off">
+        <button id="btn-clear-search" class="btn-clear-search hidden" title="Limpiar búsqueda">✕</button>
+      </div>
+
+      <!-- Filtro por Categorías -->
+      <div class="filter-section">
+        <span class="filter-label">Filtrar por categoría:</span>
+        <div id="filter-pills-container" class="filter-pills-scroll">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+
+      <!-- Opciones de visualización -->
+      <div class="filter-options-row">
+        <label class="checkbox-label">
+          <input type="checkbox" id="checkbox-hide-resolved">
+          <span>Ocultar resueltos</span>
+        </label>
+      </div>
+
+      <!-- Lista de Marcadores -->
+      <div id="sidebar-markers-list" class="sidebar-markers-list">
+        <!-- Renderizado dinámico de tarjetas -->
+      </div>
+    </aside>
+
+    <!-- Backdrop oscuro para móvil cuando se abre el sidebar -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
+
+    <!-- Modal para Crear / Editar Marcador -->
+    <div id="marker-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-title" class="modal-title">Nuevo Marcador</h3>
+          <button id="btn-modal-close" class="btn-close-subtle" title="Cerrar">✕</button>
+        </div>
+
+        <form id="marker-form" class="modal-body" onsubmit="return false;">
+          <input type="hidden" id="marker-form-id">
+          <input type="hidden" id="marker-form-x">
+          <input type="hidden" id="marker-form-y">
+
+          <!-- Selector de Categoría -->
+          <div class="form-group">
+            <label class="form-label">Tipo de Marcador:</label>
+            <div id="modal-category-picker" class="category-grid">
+              <!-- Opciones de iconos renderizadas -->
+            </div>
+          </div>
+
+          <!-- Título -->
+          <div class="form-group">
+            <label for="marker-title" class="form-label">Título / Lugar:</label>
+            <input type="text" id="marker-title" class="form-input" placeholder="ej. Templo en Ruinas, Campamento del Río..." required>
+          </div>
+
+          <!-- Fila: Día de Expedición & Estado -->
+          <div class="form-row">
+            <div class="form-group form-group-half">
+              <label for="marker-day" class="form-label">Día de Viaje:</label>
+              <input type="text" id="marker-day" class="form-input" placeholder="ej. Día 14">
+            </div>
+
+            <div class="form-group form-group-half form-group-checkbox">
+              <label class="checkbox-label-prominent">
+                <input type="checkbox" id="marker-resolved">
+                <span class="custom-check-box"></span>
+                <span>Resuelto / Superado</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Notas y Pistas -->
+          <div class="form-group">
+            <label for="marker-notes" class="form-label">Notas y Descubrimientos:</label>
+            <textarea id="marker-notes" class="form-textarea" rows="4" placeholder="Peligros detectados, pistas, botín, trampas o nombres de PNJs..."></textarea>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="modal-footer">
+            <button type="button" id="btn-delete-marker" class="btn btn-danger hidden">
+              🗑️ Eliminar
+            </button>
+            <div class="footer-right-buttons">
+              <button type="button" id="btn-cancel-marker" class="btn btn-secondary">
+                Cancelar
+              </button>
+              <button type="submit" id="btn-save-marker" class="btn btn-primary">
+                Guardar Marcador
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmación de Eliminación -->
+    <div id="confirm-modal" class="modal-backdrop hidden">
+      <div class="modal-card modal-card-sm">
+        <h3 class="modal-title">¿Eliminar Marcador?</h3>
+        <p class="modal-desc">Esta acción eliminará el marcador de la bitácora permanentemente.</p>
+        <div class="modal-footer">
+          <button id="btn-confirm-cancel" class="btn btn-secondary">Cancelar</button>
+          <button id="btn-confirm-delete" class="btn btn-danger">Sí, Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Configuración y Copia de Seguridad -->
+    <div id="backup-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 class="modal-title">Copia de Seguridad y Datos</h3>
+          <button id="btn-backup-close" class="btn-close-subtle">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="backup-info">
+            Actualmente la aplicación funciona en <strong>Modo Local</strong> guardando todo en este navegador. Puedes respaldar tus datos en un archivo para restaurarlos en cualquier momento o llevarlos a otro dispositivo.
+          </p>
+
+          <div class="backup-action-boxes">
+            <div class="backup-box">
+              <h4>Exportar Campaña</h4>
+              <p>Descarga un archivo <code>.json</code> con todos los marcadores y notas.</p>
+              <button id="btn-export-backup" class="btn btn-primary">
+                📥 Descargar Copia
+              </button>
+            </div>
+
+            <div class="backup-box">
+              <h4>Importar Campaña</h4>
+              <p>Restaura marcadores desde un archivo previamente descargado.</p>
+              <input type="file" id="input-import-file" accept=".json" class="hidden">
+              <button id="btn-trigger-import" class="btn btn-secondary">
+                📤 Subir Archivo JSON
+              </button>
+            </div>
+          </div>
+
+          <div class="firebase-ready-notice">
+            <h4>Preparado para Firebase (Nube en Tiempo Real)</h4>
+            <p>
+              Cuando desees que todos tus jugadores editen simultáneamente en la nube por link, solo activaremos la sincronización con Firebase Firestore.
+            </p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-backup-ok" class="btn btn-secondary">Listo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Posición del Grupo -->
+    <div id="party-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="party-modal-header-title">
+            <span class="party-modal-badge">⚔️</span>
+            <h3 class="modal-title">Grupo de Aventureros</h3>
+          </div>
+          <button id="btn-party-close" class="btn-close-subtle">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="party-status-banner">
+            <span class="party-desc">Posición en Chult:</span>
+            <span id="party-modal-hex-pill" class="party-hex-pill">Hexágono #2003</span>
+          </div>
+
+          <div class="party-action-box">
+            <div class="party-action-texts">
+              <strong class="party-action-heading">Trasladar Campamento del Grupo</strong>
+              <span class="party-action-sub">Toca para seleccionar el nuevo punto de acampada en el mapa</span>
+            </div>
+            <button type="button" id="btn-move-party-mode" class="btn btn-primary">
+              📍 Cambiar Posición
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label for="party-notes" class="form-label">Notas del Grupo / Último Descanso:</label>
+            <textarea id="party-notes" class="form-textarea" rows="3" placeholder="Estado del equipo, provisiones de agua dulce, repelente contra mosquitos o notas de supervivencia..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-save-party-notes" class="btn btn-primary">
+            Guardar Notas
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
