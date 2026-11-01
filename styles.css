@@ -434,11 +434,11 @@ html, body {
    ========================================================================== */
 .map-marker-pin {
   position: absolute;
-  transform: translate(-50%, calc(-50% + 14px));
+  transform: translate(calc(-50% + var(--cluster-dx, 0px)), calc(-50% + var(--cluster-dy, 10px)));
   pointer-events: auto;
   cursor: grab;
   z-index: 10;
-  transition: transform var(--transition-fast);
+  transition: transform var(--transition-fast), width 0.25s, height 0.25s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -446,7 +446,7 @@ html, body {
 }
 
 .map-marker-pin:hover {
-  transform: translate(-50%, calc(-50% + 14px)) scale(1.12);
+  transform: translate(calc(-50% + var(--cluster-dx, 0px)), calc(-50% + var(--cluster-dy, 10px) - 2px)) scale(1.15);
   z-index: 50;
 }
 
@@ -459,7 +459,7 @@ html, body {
   opacity: 0.92;
   z-index: 120 !important;
   cursor: grabbing !important;
-  transform: translate(-50%, calc(-50% + 14px)) scale(1.22);
+  transform: translate(-50%, -50%) scale(1.22);
   filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 22px var(--pin-color, #fbbf24));
   transition: none !important;
 }
@@ -469,6 +469,45 @@ html, body {
   display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
+}
+
+/* Clases de Cluster Adaptativo para Marcadores */
+.cluster-size-duo .pin-badge {
+  width: 34px !important;
+  height: 29px !important;
+}
+.cluster-size-duo .pin-badge-inner {
+  inset: 1.5px !important;
+}
+.cluster-size-duo .pin-badge-inner svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+.cluster-size-duo .pin-check {
+  width: 14px !important;
+  height: 14px !important;
+  font-size: 8px !important;
+  bottom: -2px !important;
+  right: -2px !important;
+}
+
+.cluster-size-trio .pin-badge {
+  width: 28px !important;
+  height: 24px !important;
+}
+.cluster-size-trio .pin-badge-inner {
+  inset: 1.5px !important;
+}
+.cluster-size-trio .pin-badge-inner svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+.cluster-size-trio .pin-check {
+  width: 12px !important;
+  height: 12px !important;
+  font-size: 7px !important;
+  bottom: -2px !important;
+  right: -2px !important;
 }
 
 /* Insignia Hexagonal con Borde y Sello Sepia con Acento Botánico (~40% del hexágono: 58px x 50px) */
@@ -1200,24 +1239,71 @@ html, body {
 
 .party-token-pin {
   position: absolute;
-  transform: translate(-50%, calc(-50% + 14px));
+  transform: translate(calc(-50% + var(--cluster-dx, 0px)), calc(-50% + var(--cluster-dy, 10px)));
   pointer-events: auto;
   cursor: grab;
   z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--transition-fast);
+  transition: transform var(--transition-fast), width 0.25s, height 0.25s;
   user-select: none;
 }
 
 .party-token-pin:hover {
-  transform: translate(-50%, calc(-50% + 14px)) scale(1.15);
+  transform: translate(calc(-50% + var(--cluster-dx, 0px)), calc(-50% + var(--cluster-dy, 10px) - 2px)) scale(1.15);
   z-index: 55;
 }
 
 .party-token-pin:active {
   cursor: grabbing;
+}
+
+/* Clases de Cluster Adaptativo para la Ficha del Grupo */
+.cluster-size-duo .party-badge {
+  width: 34px !important;
+  height: 29px !important;
+  min-width: 34px !important;
+  min-height: 29px !important;
+}
+.cluster-size-duo .party-badge-inner {
+  inset: 1.5px !important;
+}
+.cluster-size-duo .party-badge-inner svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+.cluster-size-duo .party-pulse-ring {
+  width: 44px !important;
+  height: 44px !important;
+}
+.cluster-size-duo .party-tag {
+  font-size: 0.46rem !important;
+  padding: 0px 4px !important;
+  bottom: -5px !important;
+}
+
+.cluster-size-trio .party-badge {
+  width: 28px !important;
+  height: 24px !important;
+  min-width: 28px !important;
+  min-height: 24px !important;
+}
+.cluster-size-trio .party-badge-inner {
+  inset: 1.5px !important;
+}
+.cluster-size-trio .party-badge-inner svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+.cluster-size-trio .party-pulse-ring {
+  width: 36px !important;
+  height: 36px !important;
+}
+.cluster-size-trio .party-tag {
+  font-size: 0.4rem !important;
+  padding: 0px 3px !important;
+  bottom: -4px !important;
 }
 
 .party-badge {

@@ -78,6 +78,10 @@ export class MapViewer {
 
     this.markers = [];
     this.selectedMarkerId = null;
+    this.partyPos = null;
+    this.onPartyClickCallback = null;
+    this.activeFilterType = "all";
+    this.hideResolved = false;
 
     // Estado de medición y camino por etapas
     this.routePoints = [];
@@ -228,6 +232,8 @@ export class MapViewer {
         if (coords) {
           this.draggedPinEl.style.left = `${coords.x}%`;
           this.draggedPinEl.style.top = `${coords.y}%`;
+          this.draggedPinEl.style.setProperty("--cluster-dx", "0px");
+          this.draggedPinEl.style.setProperty("--cluster-dy", "0px");
           const pxX = (coords.x / 100) * 2816;
           const pxY = (coords.y / 100) * 2048;
           const snap = this.snapToHexCenter(pxX, pxY);
@@ -354,6 +360,8 @@ export class MapViewer {
         if (coords) {
           this.draggedPinEl.style.left = `${coords.x}%`;
           this.draggedPinEl.style.top = `${coords.y}%`;
+          this.draggedPinEl.style.setProperty("--cluster-dx", "0px");
+          this.draggedPinEl.style.setProperty("--cluster-dy", "0px");
           const pxX = (coords.x / 100) * 2816;
           const pxY = (coords.y / 100) * 2048;
           const snap = this.snapToHexCenter(pxX, pxY);
@@ -975,141 +983,234 @@ export class MapViewer {
 
   // --- Token del Grupo de Aventureros ---
   renderPartyToken(partyPos, onPartyClick) {
-    if (!this.partyLayerEl) return;
-    this.partyLayerEl.innerHTML = "";
-    if (!partyPos) return;
-
-    const pxX = (partyPos.x / 100) * 2816;
-    const pxY = (partyPos.y / 100) * 2048;
-    const snap = this.snapToHexCenter(pxX, pxY);
-    const hexTag = snap ? `(Hex #${snap.hexId})` : "";
-    const hasNote = Boolean(partyPos.note && partyPos.note.trim());
-    const isTopArea = partyPos.y < 15;
-
-    const partyEl = document.createElement("div");
-    partyEl.className = "party-token-pin";
-    partyEl.id = "party-token-node";
-    partyEl.style.left = `${partyPos.x}%`;
-    partyEl.style.top = `${partyPos.y}%`;
-
-    partyEl.innerHTML = `
-      <div class="party-pulse-ring"></div>
-      <div class="party-badge" title="Grupo de Aventureros ${hexTag}">
-        <div class="party-badge-inner">
-          ${PARTY_TOKEN_DATA.svg}
-        </div>
-        <span class="party-tag">GRUPO</span>
-      </div>
-      <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
-        <div class="pin-popup-header">
-          <div class="pin-popup-title-wrap">
-            <span class="pin-popup-icon-wrap" style="color: ${PARTY_TOKEN_DATA.color};">${PARTY_TOKEN_DATA.svg}</span>
-            <span class="pin-popup-title">Grupo de Aventureros</span>
-          </div>
-          ${hexTag ? `<span class="pin-popup-day">${hexTag}</span>` : ""}
-        </div>
-        <div class="pin-popup-notes">${escapeHtml(hasNote ? partyPos.note : "Campamento base en expedición activa.")}</div>
-        <div class="pin-popup-arrow"></div>
-      </div>
-    `;
-
-    // Soporte para arrastrar ficha del grupo
-    partyEl.addEventListener("mousedown", (e) => {
-      if (e.button !== 0 || this.mode !== "explore") return;
-      e.stopPropagation();
-      this.startPartyDrag(partyPos, partyEl, e.clientX, e.clientY);
-    });
-
-    partyEl.addEventListener("touchstart", (e) => {
-      if (this.mode !== "explore" || e.touches.length !== 1) return;
-      e.stopPropagation();
-      const t = e.touches[0];
-      this.startPartyDrag(partyPos, partyEl, t.clientX, t.clientY);
-    }, { passive: false });
-
-    partyEl.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (Date.now() < this.suppressPinClickUntil) return;
-      if (onPartyClick) onPartyClick(partyPos);
-    });
-
-    this.partyLayerEl.appendChild(partyEl);
+    this.partyPos = partyPos;
+    this.onPartyClickCallback = onPartyClick;
+    this.renderAllHexClusters();
   }
 
   // --- Capa de Marcadores ---
   renderMarkers(markers, activeFilterType = "all", hideResolved = false) {
     this.markers = markers;
+    this.activeFilterType = activeFilterType;
+    this.hideResolved = hideResolved;
+    this.renderAllHexClusters();
+  }
+
+  // --- Renderizado Coordinado en Cluster por Hexágono ---
+  renderAllHexClusters() {
+    if (!this.markersLayerEl || !this.partyLayerEl) return;
     this.markersLayerEl.innerHTML = "";
+    this.partyLayerEl.innerHTML = "";
 
-    markers.forEach((marker) => {
-      if (activeFilterType !== "all" && marker.icon !== activeFilterType) {
-        return;
+    // 1. Filtrar marcadores visibles
+    const visibleMarkers = (this.markers || []).filter((marker) => {
+      if (this.activeFilterType !== "all" && marker.icon !== this.activeFilterType) {
+        return false;
       }
-      if (hideResolved && marker.resolved) {
-        return;
+      if (this.hideResolved && marker.resolved) {
+        return false;
+      }
+      return true;
+    });
+
+    // 2. Agrupar por hexId
+    const hexGroups = new Map();
+
+    const getGroup = (snap, fallbackId, fallbackX, fallbackY) => {
+      const hexKey = snap ? snap.hexId : `free_${fallbackId}`;
+      if (!hexGroups.has(hexKey)) {
+        hexGroups.set(hexKey, {
+          hexId: snap ? snap.hexId : null,
+          centerPercentX: snap ? snap.percentX : fallbackX,
+          centerPercentY: snap ? snap.percentY : fallbackY,
+          items: []
+        });
+      }
+      return hexGroups.get(hexKey);
+    };
+
+    // Añadir ficha del grupo si existe
+    if (this.partyPos) {
+      const pxX = (this.partyPos.x / 100) * 2816;
+      const pxY = (this.partyPos.y / 100) * 2048;
+      const snap = this.snapToHexCenter(pxX, pxY);
+      const group = getGroup(snap, "party", this.partyPos.x, this.partyPos.y);
+      group.items.push({
+        type: "party",
+        data: this.partyPos,
+        snap
+      });
+    }
+
+    // Añadir marcadores visibles
+    visibleMarkers.forEach((marker) => {
+      const pxX = (marker.x / 100) * 2816;
+      const pxY = (marker.y / 100) * 2048;
+      const snap = this.snapToHexCenter(pxX, pxY);
+      const group = getGroup(snap, marker.id, marker.x, marker.y);
+      group.items.push({
+        type: "marker",
+        data: marker,
+        snap
+      });
+    });
+
+    // 3. Renderizar cada grupo con cálculo de cluster interior
+    hexGroups.forEach((group) => {
+      const total = group.items.length;
+      let sizeClass = "cluster-size-full";
+      let offsets = [{ dx: 0, dy: 10 }];
+
+      if (total === 2) {
+        sizeClass = "cluster-size-duo";
+        offsets = [
+          { dx: -16, dy: 10 },
+          { dx: 16, dy: 10 }
+        ];
+      } else if (total === 3) {
+        sizeClass = "cluster-size-trio";
+        offsets = [
+          { dx: 0, dy: -4 },
+          { dx: -14, dy: 20 },
+          { dx: 14, dy: 20 }
+        ];
+      } else if (total >= 4) {
+        sizeClass = "cluster-size-trio";
+        offsets = [
+          { dx: -14, dy: -4 },
+          { dx: 14, dy: -4 },
+          { dx: -14, dy: 20 },
+          { dx: 14, dy: 20 }
+        ];
       }
 
-      const typeInfo = getMarkerType(marker.icon);
-      const pinEl = document.createElement("div");
-      pinEl.className = `map-marker-pin ${marker.resolved ? "resolved" : ""}`;
-      pinEl.dataset.id = marker.id;
-      pinEl.style.left = `${marker.x}%`;
-      pinEl.style.top = `${marker.y}%`;
-      pinEl.style.setProperty("--pin-color", typeInfo.color);
-      pinEl.style.setProperty("--pin-bg", typeInfo.bgColor);
+      group.items.forEach((item, idx) => {
+        const offset = offsets[idx] || { dx: 0, dy: 10 };
 
-      const hasTitle = Boolean(marker.title && marker.title.trim());
-      const hasNotes = Boolean(marker.notes && marker.notes.trim());
-      const hasPopup = hasTitle || hasNotes;
-      const isTopArea = marker.y < 15;
+        if (item.type === "party") {
+          const partyPos = item.data;
+          const hexTag = item.snap ? `(Hex #${item.snap.hexId})` : "";
+          const hasNote = Boolean(partyPos.note && partyPos.note.trim());
+          const isTopArea = group.centerPercentY < 15;
 
-      const popupHtml = hasPopup ? `
-        <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
-          <div class="pin-popup-header">
-            <div class="pin-popup-title-wrap">
-              <span class="pin-popup-icon-wrap" style="color: ${typeInfo.color};">${typeInfo.svg}</span>
-              <span class="pin-popup-title">${escapeHtml(hasTitle ? marker.title : typeInfo.label)}</span>
+          const partyEl = document.createElement("div");
+          partyEl.className = `party-token-pin ${sizeClass}`;
+          partyEl.id = "party-token-node";
+          partyEl.style.left = `${group.centerPercentX}%`;
+          partyEl.style.top = `${group.centerPercentY}%`;
+          partyEl.style.setProperty("--cluster-dx", `${offset.dx}px`);
+          partyEl.style.setProperty("--cluster-dy", `${offset.dy}px`);
+
+          partyEl.innerHTML = `
+            <div class="party-pulse-ring"></div>
+            <div class="party-badge" title="Grupo de Aventureros ${hexTag}">
+              <div class="party-badge-inner">
+                ${PARTY_TOKEN_DATA.svg}
+              </div>
+              <span class="party-tag">GRUPO</span>
             </div>
-            ${marker.day ? `<span class="pin-popup-day">${escapeHtml(marker.day)}</span>` : ""}
-          </div>
-          ${hasNotes ? `<div class="pin-popup-notes">${escapeHtml(marker.notes)}</div>` : ""}
-          ${marker.resolved ? `<div class="pin-popup-status">✓ Resuelto / Superado</div>` : ""}
-          <div class="pin-popup-arrow"></div>
-        </div>
-      ` : "";
+            <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
+              <div class="pin-popup-header">
+                <div class="pin-popup-title-wrap">
+                  <span class="pin-popup-icon-wrap" style="color: ${PARTY_TOKEN_DATA.color};">${PARTY_TOKEN_DATA.svg}</span>
+                  <span class="pin-popup-title">Grupo de Aventureros</span>
+                </div>
+                ${hexTag ? `<span class="pin-popup-day">${hexTag}</span>` : ""}
+              </div>
+              <div class="pin-popup-notes">${escapeHtml(hasNote ? partyPos.note : "Campamento base en expedición activa.")}</div>
+              <div class="pin-popup-arrow"></div>
+            </div>
+          `;
 
-      pinEl.innerHTML = `
-        <div class="pin-badge" title="${escapeHtml(marker.title || typeInfo.label)}">
-          <div class="pin-badge-inner">
-            ${typeInfo.svg}
-          </div>
-        </div>
-        ${marker.resolved ? '<span class="pin-check">✓</span>' : ""}
-        ${popupHtml}
-      `;
+          // Arrastrar ficha del grupo
+          partyEl.addEventListener("mousedown", (e) => {
+            if (e.button !== 0 || this.mode !== "explore") return;
+            e.stopPropagation();
+            this.startPartyDrag(partyPos, partyEl, e.clientX, e.clientY);
+          });
 
-      // Soporte para arrastrar marcador
-      pinEl.addEventListener("mousedown", (e) => {
-        if (e.button !== 0 || this.mode !== "explore") return;
-        e.stopPropagation();
-        this.startPinDrag(marker, pinEl, e.clientX, e.clientY);
+          partyEl.addEventListener("touchstart", (e) => {
+            if (this.mode !== "explore" || e.touches.length !== 1) return;
+            e.stopPropagation();
+            const t = e.touches[0];
+            this.startPartyDrag(partyPos, partyEl, t.clientX, t.clientY);
+          }, { passive: false });
+
+          partyEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (Date.now() < this.suppressPinClickUntil) return;
+            if (this.onPartyClickCallback) this.onPartyClickCallback(partyPos);
+          });
+
+          this.partyLayerEl.appendChild(partyEl);
+
+        } else if (item.type === "marker") {
+          const marker = item.data;
+          const typeInfo = getMarkerType(marker.icon);
+          const pinEl = document.createElement("div");
+          pinEl.className = `map-marker-pin ${sizeClass} ${marker.resolved ? "resolved" : ""}`;
+          pinEl.dataset.id = marker.id;
+          pinEl.style.left = `${group.centerPercentX}%`;
+          pinEl.style.top = `${group.centerPercentY}%`;
+          pinEl.style.setProperty("--cluster-dx", `${offset.dx}px`);
+          pinEl.style.setProperty("--cluster-dy", `${offset.dy}px`);
+          pinEl.style.setProperty("--pin-color", typeInfo.color);
+          pinEl.style.setProperty("--pin-bg", typeInfo.bgColor);
+
+          const hasTitle = Boolean(marker.title && marker.title.trim());
+          const hasNotes = Boolean(marker.notes && marker.notes.trim());
+          const hasPopup = hasTitle || hasNotes;
+          const isTopArea = group.centerPercentY < 15;
+
+          const popupHtml = hasPopup ? `
+            <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
+              <div class="pin-popup-header">
+                <div class="pin-popup-title-wrap">
+                  <span class="pin-popup-icon-wrap" style="color: ${typeInfo.color};">${typeInfo.svg}</span>
+                  <span class="pin-popup-title">${escapeHtml(hasTitle ? marker.title : typeInfo.label)}</span>
+                </div>
+                ${marker.day ? `<span class="pin-popup-day">${escapeHtml(marker.day)}</span>` : ""}
+              </div>
+              ${hasNotes ? `<div class="pin-popup-notes">${escapeHtml(marker.notes)}</div>` : ""}
+              ${marker.resolved ? `<div class="pin-popup-status">✓ Resuelto / Superado</div>` : ""}
+              <div class="pin-popup-arrow"></div>
+            </div>
+          ` : "";
+
+          pinEl.innerHTML = `
+            <div class="pin-badge" title="${escapeHtml(marker.title || typeInfo.label)}">
+              <div class="pin-badge-inner">
+                ${typeInfo.svg}
+              </div>
+            </div>
+            ${marker.resolved ? '<span class="pin-check">✓</span>' : ""}
+            ${popupHtml}
+          `;
+
+          // Arrastrar marcador
+          pinEl.addEventListener("mousedown", (e) => {
+            if (e.button !== 0 || this.mode !== "explore") return;
+            e.stopPropagation();
+            this.startPinDrag(marker, pinEl, e.clientX, e.clientY);
+          });
+
+          pinEl.addEventListener("touchstart", (e) => {
+            if (this.mode !== "explore" || e.touches.length !== 1) return;
+            e.stopPropagation();
+            const t = e.touches[0];
+            this.startPinDrag(marker, pinEl, t.clientX, t.clientY);
+          }, { passive: false });
+
+          pinEl.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (Date.now() < this.suppressPinClickUntil) return;
+            this.selectedMarkerId = marker.id;
+            this.onMarkerClick(marker);
+          });
+
+          this.markersLayerEl.appendChild(pinEl);
+        }
       });
-
-      pinEl.addEventListener("touchstart", (e) => {
-        if (this.mode !== "explore" || e.touches.length !== 1) return;
-        e.stopPropagation();
-        const t = e.touches[0];
-        this.startPinDrag(marker, pinEl, t.clientX, t.clientY);
-      }, { passive: false });
-
-      pinEl.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (Date.now() < this.suppressPinClickUntil) return;
-        this.selectedMarkerId = marker.id;
-        this.onMarkerClick(marker);
-      });
-
-      this.markersLayerEl.appendChild(pinEl);
     });
   }
 }
