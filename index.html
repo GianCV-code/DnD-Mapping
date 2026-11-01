@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2.2">
 </head>
 <body>
   <!-- Contenedor Principal de la Aplicación -->
@@ -57,16 +57,7 @@
       </div>
     </header>
 
-    <!-- Barra Flotante de Selección Rápida de Ícono (Activa en Modo Añadir) -->
-    <div id="quick-icon-bar" class="quick-icon-bar hidden">
-      <div class="quick-icon-header">
-        <span class="quick-icon-prompt">1. Selecciona el ícono y luego <strong>toca el mapa</strong>:</span>
-        <button id="btn-cancel-add-mode" class="btn-close-subtle" title="Cancelar colocación">✕</button>
-      </div>
-      <div id="quick-icon-list" class="quick-icon-list">
-        <!-- Renderizado dinámicamente con las categorías -->
-      </div>
-    </div>
+
 
     <!-- Barra Flotante de Herramienta de Camino / Regla (Activa en Modo Camino) -->
     <div id="route-control-bar" class="route-control-bar hidden">
@@ -103,8 +94,8 @@
     <main id="map-viewport" class="map-viewport cursor-grab">
       <div id="map-container" class="map-container">
         <img id="map-image" src="MAPS - Chult 2.0 PC - Numerado.png" alt="Mapa de Chult Numerado" draggable="false">
-        <svg id="route-svg" class="route-svg" viewBox="0 0 2816 2048"></svg>
-        <svg id="measure-svg" class="measure-svg" viewBox="0 0 2816 2048"></svg>
+        <svg id="route-svg" class="route-svg" viewBox="0 0 2816 2048" fill="none"></svg>
+        <svg id="measure-svg" class="measure-svg" viewBox="0 0 2816 2048" fill="none"></svg>
         <div id="markers-layer" class="markers-layer"></div>
         <div id="party-layer" class="party-layer"></div>
         <div id="measure-badge" class="measure-badge hidden"></div>
@@ -189,10 +180,10 @@
             </div>
           </div>
 
-          <!-- Título -->
+          <!-- Título (Opcional) -->
           <div class="form-group">
-            <label for="marker-title" class="form-label">Título / Lugar:</label>
-            <input type="text" id="marker-title" class="form-input" placeholder="ej. Templo en Ruinas, Campamento del Río..." required>
+            <label for="marker-title" class="form-label">Título / Lugar <span class="label-optional">(Opcional)</span>:</label>
+            <input type="text" id="marker-title" class="form-input" placeholder="ej. Río Olung, Ruinas de Mezro... (opcional)">
           </div>
 
           <!-- Fila: Día de Expedición & Estado -->
@@ -219,9 +210,14 @@
 
           <!-- Botones de Acción -->
           <div class="modal-footer">
-            <button type="button" id="btn-delete-marker" class="btn btn-danger hidden">
-              🗑️ Eliminar
-            </button>
+            <div class="footer-left-buttons">
+              <button type="button" id="btn-delete-marker" class="btn btn-danger hidden">
+                🗑️ Eliminar
+              </button>
+              <button type="button" id="btn-move-marker" class="btn btn-secondary hidden" title="Mover este pin a otro hexágono">
+                📍 Mover de lugar
+              </button>
+            </div>
             <div class="footer-right-buttons">
               <button type="button" id="btn-cancel-marker" class="btn btn-secondary">
                 Cancelar
@@ -332,6 +328,6 @@
 
   </div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=2.2"></script>
 </body>
 </html>

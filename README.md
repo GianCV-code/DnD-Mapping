@@ -27,6 +27,12 @@ Herramienta web interactiva para exploración y navegación hexagonal en la pen�
 
 Para levantar el servidor local de desarrollo:
 
+Con Node.js:
+```bash
+node serve.js
+```
+
+O con Python:
 ```bash
 python serve.py
 ```

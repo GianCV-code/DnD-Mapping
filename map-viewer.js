@@ -13,11 +13,15 @@ export class MapViewer {
     routeBadgeEl,
     measureBadgeEl,
     onMarkerClick,
+    onMarkerMove,
     onMapClick,
     onPartyClick,
     onMovePartyClick,
+    onMoveMarkerClick,
     onRouteUpdate,
-    onRouteFinish
+    onRouteFinish,
+    onRouteDelete,
+    onRouteBadgeClick
   }) {
     this.viewportEl = viewportEl;
     this.mapContainerEl = mapContainerEl;
@@ -29,11 +33,15 @@ export class MapViewer {
     this.routeBadgeEl = routeBadgeEl;
     this.measureBadgeEl = measureBadgeEl;
     this.onMarkerClick = onMarkerClick;
+    this.onMarkerMove = onMarkerMove;
     this.onMapClick = onMapClick;
     this.onPartyClick = onPartyClick;
     this.onMovePartyClick = onMovePartyClick;
+    this.onMoveMarkerClick = onMoveMarkerClick;
     this.onRouteUpdate = onRouteUpdate;
     this.onRouteFinish = onRouteFinish;
+    this.onRouteDelete = onRouteDelete;
+    this.onRouteBadgeClick = onRouteBadgeClick;
 
     // Estado de transformación
     this.scale = 0.5;
@@ -41,6 +49,15 @@ export class MapViewer {
     this.maxScale = 4.0;
     this.translateX = 0;
     this.translateY = 0;
+
+    // Arrastre directo de pines y fichas
+    this.draggedPin = null;
+    this.draggedPinEl = null;
+    this.isDraggingPin = false;
+    this.dragPinStartClientX = 0;
+    this.dragPinStartClientY = 0;
+    this.dragPinHasMoved = false;
+    this.suppressPinClickUntil = 0;
 
     // Modo actual: 'explore' | 'add_pin' | 'measure' | 'move_party'
     this.mode = "explore";
@@ -110,7 +127,7 @@ export class MapViewer {
     this.mode = mode;
     this.activeIconType = iconType;
 
-    if (mode === "add_pin" || mode === "measure" || mode === "move_party") {
+    if (mode === "add_pin" || mode === "measure" || mode === "move_party" || mode === "move_marker") {
       this.viewportEl.classList.add("cursor-crosshair");
       this.viewportEl.classList.remove("cursor-grab", "cursor-grabbing");
     } else {
@@ -180,7 +197,48 @@ export class MapViewer {
     this.viewportEl.classList.add("cursor-grabbing");
   }
 
+  startPinDrag(marker, pinEl, clientX, clientY) {
+    this.draggedPin = { type: "marker", data: marker };
+    this.draggedPinEl = pinEl;
+    this.isDraggingPin = true;
+    this.dragPinStartClientX = clientX;
+    this.dragPinStartClientY = clientY;
+    this.dragPinHasMoved = false;
+  }
+
+  startPartyDrag(partyPos, partyEl, clientX, clientY) {
+    this.draggedPin = { type: "party", data: partyPos };
+    this.draggedPinEl = partyEl;
+    this.isDraggingPin = true;
+    this.dragPinStartClientX = clientX;
+    this.dragPinStartClientY = clientY;
+    this.dragPinHasMoved = false;
+  }
+
   handleMouseMove(e) {
+    // Si estamos arrastrando un marcador o ficha
+    if (this.isDraggingPin && this.draggedPinEl) {
+      const dist = Math.hypot(e.clientX - this.dragPinStartClientX, e.clientY - this.dragPinStartClientY);
+      if (dist > 5) {
+        this.dragPinHasMoved = true;
+        this.draggedPinEl.classList.add("is-dragging");
+      }
+      if (this.dragPinHasMoved) {
+        const coords = this.screenToMapPercent(e.clientX, e.clientY);
+        if (coords) {
+          this.draggedPinEl.style.left = `${coords.x}%`;
+          this.draggedPinEl.style.top = `${coords.y}%`;
+          const pxX = (coords.x / 100) * 2816;
+          const pxY = (coords.y / 100) * 2048;
+          const snap = this.snapToHexCenter(pxX, pxY);
+          if (snap) {
+            this.drawHoverHex(snap);
+          }
+        }
+      }
+      return;
+    }
+
     // Si estamos en modo camino/regla sin arrastrar, previsualizar snap al hexágono y paso
     if (this.mode === "measure" && !this.isDragging) {
       const coords = this.screenToMapPercent(e.clientX, e.clientY);
@@ -213,6 +271,43 @@ export class MapViewer {
   }
 
   handleMouseUp(e) {
+    if (this.isDraggingPin) {
+      const dragged = this.draggedPin;
+      const pinEl = this.draggedPinEl;
+      const hasMoved = this.dragPinHasMoved;
+
+      this.isDraggingPin = false;
+      this.draggedPin = null;
+      this.draggedPinEl = null;
+      this.dragPinHasMoved = false;
+
+      if (pinEl) pinEl.classList.remove("is-dragging");
+      this.clearActiveMeasurement();
+
+      if (hasMoved) {
+        this.suppressPinClickUntil = Date.now() + 250;
+        const coords = this.screenToMapPercent(e.clientX, e.clientY);
+        if (coords) {
+          const pxX = (coords.x / 100) * 2816;
+          const pxY = (coords.y / 100) * 2048;
+          const snap = this.snapToHexCenter(pxX, pxY);
+          const finalX = snap ? snap.percentX : coords.x;
+          const finalY = snap ? snap.percentY : coords.y;
+
+          if (dragged.type === "marker") {
+            if (this.onMarkerMove) {
+              this.onMarkerMove(dragged.data.id, finalX, finalY, snap ? snap.hexId : null);
+            }
+          } else if (dragged.type === "party") {
+            if (this.onMovePartyClick) {
+              this.onMovePartyClick(finalX, finalY);
+            }
+          }
+        }
+      }
+      return;
+    }
+
     if (!this.isDragging) return;
     this.isDragging = false;
     this.viewportEl.classList.remove("cursor-grabbing");
@@ -246,6 +341,30 @@ export class MapViewer {
   }
 
   handleTouchMove(e) {
+    if (this.isDraggingPin && this.draggedPinEl && e.touches.length === 1) {
+      e.preventDefault();
+      const t = e.touches[0];
+      const dist = Math.hypot(t.clientX - this.dragPinStartClientX, t.clientY - this.dragPinStartClientY);
+      if (dist > 6) {
+        this.dragPinHasMoved = true;
+        this.draggedPinEl.classList.add("is-dragging");
+      }
+      if (this.dragPinHasMoved) {
+        const coords = this.screenToMapPercent(t.clientX, t.clientY);
+        if (coords) {
+          this.draggedPinEl.style.left = `${coords.x}%`;
+          this.draggedPinEl.style.top = `${coords.y}%`;
+          const pxX = (coords.x / 100) * 2816;
+          const pxY = (coords.y / 100) * 2048;
+          const snap = this.snapToHexCenter(pxX, pxY);
+          if (snap) {
+            this.drawHoverHex(snap);
+          }
+        }
+      }
+      return;
+    }
+
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
@@ -281,6 +400,44 @@ export class MapViewer {
   }
 
   handleTouchEnd(e) {
+    if (this.isDraggingPin) {
+      const dragged = this.draggedPin;
+      const pinEl = this.draggedPinEl;
+      const hasMoved = this.dragPinHasMoved;
+
+      this.isDraggingPin = false;
+      this.draggedPin = null;
+      this.draggedPinEl = null;
+      this.dragPinHasMoved = false;
+
+      if (pinEl) pinEl.classList.remove("is-dragging");
+      this.clearActiveMeasurement();
+
+      if (hasMoved && e.changedTouches && e.changedTouches.length > 0) {
+        this.suppressPinClickUntil = Date.now() + 250;
+        const t = e.changedTouches[0];
+        const coords = this.screenToMapPercent(t.clientX, t.clientY);
+        if (coords) {
+          const pxX = (coords.x / 100) * 2816;
+          const pxY = (coords.y / 100) * 2048;
+          const snap = this.snapToHexCenter(pxX, pxY);
+          const finalX = snap ? snap.percentX : coords.x;
+          const finalY = snap ? snap.percentY : coords.y;
+
+          if (dragged.type === "marker") {
+            if (this.onMarkerMove) {
+              this.onMarkerMove(dragged.data.id, finalX, finalY, snap ? snap.hexId : null);
+            }
+          } else if (dragged.type === "party") {
+            if (this.onMovePartyClick) {
+              this.onMovePartyClick(finalX, finalY);
+            }
+          }
+        }
+      }
+      return;
+    }
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       this.activeTouches.delete(e.changedTouches[i].identifier);
     }
@@ -317,6 +474,10 @@ export class MapViewer {
     } else if (this.mode === "move_party") {
       if (this.onMovePartyClick) {
         this.onMovePartyClick(coords.x, coords.y);
+      }
+    } else if (this.mode === "move_marker") {
+      if (this.onMoveMarkerClick) {
+        this.onMoveMarkerClick(coords.x, coords.y);
       }
     } else if (this.mode === "measure") {
       const pxX = (coords.x / 100) * 2816;
@@ -553,7 +714,7 @@ export class MapViewer {
     if (!this.measureSvgEl) return;
     this.measureSvgEl.innerHTML = `
       <g class="measure-group-hover">
-        <polygon points="${this.getHexPolygonPoints(snapped.x, snapped.y)}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6 4" />
+        <polygon points="${this.getHexPolygonPoints(snapped.x, snapped.y)}" fill="none" style="fill: none !important;" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6 4" />
         <circle cx="${snapped.x}" cy="${snapped.y}" r="8" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
         <circle cx="${snapped.x}" cy="${snapped.y}" r="3" fill="#ffffff" />
         <text x="${snapped.x}" y="${snapped.y - 18}" text-anchor="middle" class="measure-hex-label preview">HEX ${snapped.hexId}</text>
@@ -593,19 +754,19 @@ export class MapViewer {
     // Solo dibujamos el contorno hueco (fill: none) del hexágono donde se encuentra el cursor
     let hoverOutlineHtml = "";
     if (isHoveringOtherHex) {
-      hoverOutlineHtml = `<polygon points="${this.getHexPolygonPoints(hoverHex.x, hoverHex.y)}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6 4" />`;
+      hoverOutlineHtml = `<polygon points="${this.getHexPolygonPoints(hoverHex.x, hoverHex.y)}" fill="none" style="fill: none !important;" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6 4" />`;
     }
 
-    // Líneas del camino (sin sombras negras gruesas)
+    // Líneas del camino (sin sombras negras gruesas ni rellenos opacos)
     let linesHtml = "";
     if (points.length >= 2) {
       const confirmedPtsStr = points.map((p) => `${p.x},${p.y}`).join(" ");
-      linesHtml += `<polyline points="${confirmedPtsStr}" class="route-polyline-trail" />`;
+      linesHtml += `<polyline points="${confirmedPtsStr}" class="route-polyline-trail" fill="none" style="fill: none !important;" />`;
     }
 
     if (isHoveringOtherHex) {
       linesHtml += `
-        <line x1="${lastConfirmed.x}" y1="${lastConfirmed.y}" x2="${hoverHex.x}" y2="${hoverHex.y}" class="measure-line preview" />
+        <line x1="${lastConfirmed.x}" y1="${lastConfirmed.y}" x2="${hoverHex.x}" y2="${hoverHex.y}" class="measure-line preview" style="fill: none !important;" />
       `;
     }
 
@@ -738,7 +899,7 @@ export class MapViewer {
 
     // Líneas del camino persistente (sin polígonos rellenos ni sombras negras)
     const ptsStr = points.map((p) => `${p.x},${p.y}`).join(" ");
-    const linesHtml = `<polyline points="${ptsStr}" class="route-polyline-trail" />`;
+    const linesHtml = `<polyline points="${ptsStr}" class="route-polyline-trail" fill="none" style="fill: none !important;" />`;
 
     let nodesHtml = "";
     points.forEach((p, idx) => {
@@ -777,8 +938,28 @@ export class MapViewer {
       this.routeBadgeEl.innerHTML = `
         <span class="route-badge-icon">🗺️</span>
         <span class="route-badge-text"><strong>${calc.totalHexes}</strong> hex • <strong>${calc.totalMiles}</strong> millas (${points.length} etapas)</span>
+        <button type="button" class="route-badge-btn-delete" title="Borrar este camino">🗑️ Borrar</button>
       `;
       this.routeBadgeEl.classList.remove("hidden");
+
+      const delBtn = this.routeBadgeEl.querySelector(".route-badge-btn-delete");
+      if (delBtn) {
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (this.onRouteDelete) {
+            this.onRouteDelete();
+          } else {
+            this.clearRoute();
+          }
+        };
+      }
+
+      this.routeBadgeEl.onclick = (e) => {
+        if (e.target.closest(".route-badge-btn-delete")) return;
+        if (this.onRouteBadgeClick) {
+          this.onRouteBadgeClick();
+        }
+      };
     }
   }
 
@@ -801,7 +982,9 @@ export class MapViewer {
     const pxX = (partyPos.x / 100) * 2816;
     const pxY = (partyPos.y / 100) * 2048;
     const snap = this.snapToHexCenter(pxX, pxY);
-    const hexTag = snap ? `(Hex ${snap.hexId})` : "";
+    const hexTag = snap ? `(Hex #${snap.hexId})` : "";
+    const hasNote = Boolean(partyPos.note && partyPos.note.trim());
+    const isTopArea = partyPos.y < 15;
 
     const partyEl = document.createElement("div");
     partyEl.className = "party-token-pin";
@@ -811,20 +994,42 @@ export class MapViewer {
 
     partyEl.innerHTML = `
       <div class="party-pulse-ring"></div>
-      <div class="party-badge" title="Posición del Grupo de Aventureros">
+      <div class="party-badge" title="Grupo de Aventureros ${hexTag}">
         <div class="party-badge-inner">
           <span class="party-emoji">⚔️</span>
         </div>
         <span class="party-tag">GRUPO</span>
       </div>
-      <div class="pin-tooltip">
-        <span class="tooltip-title">Grupo de Aventureros ${hexTag}</span>
-        <span class="tooltip-day">${partyPos.note ? escapeHtml(partyPos.note.substring(0, 36)) : "En expedición"}</span>
+      <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
+        <div class="pin-popup-header">
+          <div class="pin-popup-title-wrap">
+            <span class="pin-popup-emoji">⚔️</span>
+            <span class="pin-popup-title">Grupo de Aventureros</span>
+          </div>
+          ${hexTag ? `<span class="pin-popup-day">${hexTag}</span>` : ""}
+        </div>
+        <div class="pin-popup-notes">${escapeHtml(hasNote ? partyPos.note : "Campamento base en expedición activa.")}</div>
+        <div class="pin-popup-arrow"></div>
       </div>
     `;
 
+    // Soporte para arrastrar ficha del grupo
+    partyEl.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || this.mode !== "explore") return;
+      e.stopPropagation();
+      this.startPartyDrag(partyPos, partyEl, e.clientX, e.clientY);
+    });
+
+    partyEl.addEventListener("touchstart", (e) => {
+      if (this.mode !== "explore" || e.touches.length !== 1) return;
+      e.stopPropagation();
+      const t = e.touches[0];
+      this.startPartyDrag(partyPos, partyEl, t.clientX, t.clientY);
+    }, { passive: false });
+
     partyEl.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (Date.now() < this.suppressPinClickUntil) return;
       if (onPartyClick) onPartyClick(partyPos);
     });
 
@@ -853,21 +1058,53 @@ export class MapViewer {
       pinEl.style.setProperty("--pin-color", typeInfo.color);
       pinEl.style.setProperty("--pin-bg", typeInfo.bgColor);
 
+      const hasTitle = Boolean(marker.title && marker.title.trim());
+      const hasNotes = Boolean(marker.notes && marker.notes.trim());
+      const hasPopup = hasTitle || hasNotes;
+      const isTopArea = marker.y < 15;
+
+      const popupHtml = hasPopup ? `
+        <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
+          <div class="pin-popup-header">
+            <div class="pin-popup-title-wrap">
+              <span class="pin-popup-emoji">${typeInfo.emoji}</span>
+              <span class="pin-popup-title">${escapeHtml(hasTitle ? marker.title : typeInfo.label)}</span>
+            </div>
+            ${marker.day ? `<span class="pin-popup-day">${escapeHtml(marker.day)}</span>` : ""}
+          </div>
+          ${hasNotes ? `<div class="pin-popup-notes">${escapeHtml(marker.notes)}</div>` : ""}
+          ${marker.resolved ? `<div class="pin-popup-status">✓ Resuelto / Superado</div>` : ""}
+          <div class="pin-popup-arrow"></div>
+        </div>
+      ` : "";
+
       pinEl.innerHTML = `
-        <div class="pin-badge" title="${escapeHtml(marker.title)}">
+        <div class="pin-badge" title="${escapeHtml(marker.title || typeInfo.label)}">
           <div class="pin-badge-inner">
             <span class="pin-emoji">${typeInfo.emoji}</span>
           </div>
         </div>
         ${marker.resolved ? '<span class="pin-check">✓</span>' : ""}
-        <div class="pin-tooltip">
-          <span class="tooltip-title">${escapeHtml(marker.title || "Marcador")}</span>
-          ${marker.day ? `<span class="tooltip-day">${escapeHtml(marker.day)}</span>` : ""}
-        </div>
+        ${popupHtml}
       `;
+
+      // Soporte para arrastrar marcador
+      pinEl.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || this.mode !== "explore") return;
+        e.stopPropagation();
+        this.startPinDrag(marker, pinEl, e.clientX, e.clientY);
+      });
+
+      pinEl.addEventListener("touchstart", (e) => {
+        if (this.mode !== "explore" || e.touches.length !== 1) return;
+        e.stopPropagation();
+        const t = e.touches[0];
+        this.startPinDrag(marker, pinEl, t.clientX, t.clientY);
+      }, { passive: false });
 
       pinEl.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (Date.now() < this.suppressPinClickUntil) return;
         this.selectedMarkerId = marker.id;
         this.onMarkerClick(marker);
       });

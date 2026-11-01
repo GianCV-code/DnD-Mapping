@@ -17,7 +17,7 @@ import {
 } from "./storage.js";
 import { MapViewer } from "./map-viewer.js";
 
-document.addEventListener("DOMContentLoaded", () => {
+function initApp() {
   // Estado local de la interfaz
   let currentFilterCategory = "all";
   let hideResolved = false;
@@ -42,9 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnAddPin = document.getElementById("btn-add-pin");
   const btnMeasure = document.getElementById("btn-measure");
   const btnLocateParty = document.getElementById("btn-locate-party");
-  const quickIconBar = document.getElementById("quick-icon-bar");
-  const quickIconList = document.getElementById("quick-icon-list");
-  const btnCancelAddMode = document.getElementById("btn-cancel-add-mode");
+  let pendingMoveMarkerId = null;
 
   // Barra de Camino / Regla
   const routeControlBar = document.getElementById("route-control-bar");
@@ -80,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkboxResolved = document.getElementById("marker-resolved");
   const inputNotes = document.getElementById("marker-notes");
   const btnDeleteMarker = document.getElementById("btn-delete-marker");
+  const btnMoveMarker = document.getElementById("btn-move-marker");
   const btnCancelMarker = document.getElementById("btn-cancel-marker");
   const btnModalClose = document.getElementById("btn-modal-close");
 
@@ -124,8 +123,28 @@ document.addEventListener("DOMContentLoaded", () => {
     onMarkerClick: (marker) => {
       openEditMarkerModal(marker);
     },
-    onMapClick: (percentX, percentY, iconType) => {
-      openCreateMarkerModal(percentX, percentY, iconType);
+    onMarkerMove: (markerId, finalX, finalY, hexId) => {
+      saveMarker({ id: markerId, x: finalX, y: finalY });
+    },
+    onMapClick: (percentX, percentY) => {
+      const pxX = (percentX / 100) * 2816;
+      const pxY = (percentY / 100) * 2048;
+      const snap = mapViewer.snapToHexCenter(pxX, pxY);
+      const posX = snap ? snap.percentX : percentX;
+      const posY = snap ? snap.percentY : percentY;
+      openCreateMarkerModal(posX, posY, "camp", snap ? snap.hexId : null);
+    },
+    onMoveMarkerClick: (percentX, percentY) => {
+      if (pendingMoveMarkerId) {
+        const pxX = (percentX / 100) * 2816;
+        const pxY = (percentY / 100) * 2048;
+        const snap = mapViewer.snapToHexCenter(pxX, pxY);
+        const posX = snap ? snap.percentX : percentX;
+        const posY = snap ? snap.percentY : percentY;
+        saveMarker({ id: pendingMoveMarkerId, x: posX, y: posY });
+        pendingMoveMarkerId = null;
+        setExploreMode();
+      }
     },
     onPartyClick: (partyPos) => {
       openPartyModal(partyPos);
@@ -152,11 +171,18 @@ document.addEventListener("DOMContentLoaded", () => {
       saveRoute(routeData);
       updateRouteBarUI(routeData);
       setExploreMode();
+    },
+    onRouteDelete: () => {
+      clearRoute();
+      mapViewer.clearRoute();
+      renderSidebarList();
+    },
+    onRouteBadgeClick: () => {
+      setMeasureMode();
     }
   });
 
   // Renderizar selectores de categorías iniciales
-  renderQuickIconBar();
   renderModalCategoryPicker();
   renderFilterPills();
 
@@ -174,6 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
   subscribeRoute((savedRoute) => {
     mapViewer.setSavedRoute(savedRoute);
     updateRouteBarUI(savedRoute);
+    renderSidebarList();
   });
 
   function updateRouteBarUI(routeData) {
@@ -199,10 +226,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Manejo de Modos: Explorar, Añadir Pin, Medir, Mover Grupo
   // ==========================================================================
   btnAddPin.addEventListener("click", () => {
-    if (mapViewer.mode === "add_pin") {
+    if (mapViewer.mode === "add_pin" || mapViewer.mode === "move_marker") {
       setExploreMode();
     } else {
-      setAddPinMode(activeAddIcon);
+      setAddPinMode();
     }
   });
 
@@ -214,13 +241,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  btnCancelAddMode.addEventListener("click", () => {
-    setExploreMode();
-  });
-
   function setExploreMode() {
+    pendingMoveMarkerId = null;
     mapViewer.setMode("explore");
-    quickIconBar.classList.add("hidden");
     routeControlBar.classList.add("hidden");
     modeStatusPill.className = "status-pill mode-explore";
     modeText.textContent = "Modo: Explorar";
@@ -234,14 +257,12 @@ document.addEventListener("DOMContentLoaded", () => {
     btnMeasure.innerHTML = '<span class="btn-icon">📏</span><span class="btn-label">Camino</span>';
   }
 
-  function setAddPinMode(iconType) {
-    activeAddIcon = iconType;
-    mapViewer.setMode("add_pin", iconType);
-    quickIconBar.classList.remove("hidden");
+  function setAddPinMode() {
+    pendingMoveMarkerId = null;
+    mapViewer.setMode("add_pin");
     routeControlBar.classList.add("hidden");
     modeStatusPill.className = "status-pill mode-adding";
-    const info = getMarkerType(iconType);
-    modeText.textContent = `Colocando: ${info.emoji} ${info.label}`;
+    modeText.textContent = "📍 Toca el mapa donde deseas colocar el pin";
 
     btnAddPin.classList.remove("btn-primary");
     btnAddPin.classList.add("btn-secondary");
@@ -249,15 +270,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnMeasure.classList.remove("btn-primary");
     btnMeasure.classList.add("btn-secondary");
+  }
 
-    document.querySelectorAll(".icon-chip-btn").forEach((chip) => {
-      chip.classList.toggle("active", chip.dataset.type === iconType);
-    });
+  function setMoveMarkerMode() {
+    mapViewer.setMode("move_marker");
+    routeControlBar.classList.add("hidden");
+    modeStatusPill.className = "status-pill mode-adding";
+    modeText.textContent = "📍 Toca el nuevo hexágono para mover el pin";
+
+    btnAddPin.classList.remove("btn-primary");
+    btnAddPin.classList.add("btn-secondary");
+    btnAddPin.innerHTML = '<span class="btn-icon">✕</span><span class="btn-label">Cancelar</span>';
   }
 
   function setMeasureMode() {
     mapViewer.setMode("measure");
-    quickIconBar.classList.add("hidden");
     routeControlBar.classList.remove("hidden");
     modeStatusPill.className = "status-pill mode-adding";
     modeText.textContent = "Modo: Trazar Camino (Doble clic fija)";
@@ -283,6 +310,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnClearRoute.addEventListener("click", () => {
     clearRoute();
     mapViewer.clearRoute();
+    renderSidebarList();
   });
 
   btnCloseRouteMode.addEventListener("click", () => {
@@ -308,26 +336,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function setMovePartyMode() {
     mapViewer.setMode("move_party");
-    quickIconBar.classList.add("hidden");
     modeStatusPill.className = "status-pill mode-adding";
     modeText.textContent = "📍 Toca el mapa para reubicar al Grupo";
-  }
-
-  function renderQuickIconBar() {
-    quickIconList.innerHTML = "";
-    Object.values(MARKER_TYPES).forEach((type) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `icon-chip-btn ${type.id === activeAddIcon ? "active" : ""}`;
-      btn.dataset.type = type.id;
-      btn.style.setProperty("--chip-bg", type.bgColor);
-      btn.style.setProperty("--chip-border", type.borderColor);
-      btn.innerHTML = `<span>${type.emoji}</span><span>${type.label}</span>`;
-      btn.addEventListener("click", () => {
-        setAddPinMode(type.id);
-      });
-      quickIconList.appendChild(btn);
-    });
   }
 
   function renderModalCategoryPicker() {
@@ -432,7 +442,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderSidebarList() {
     const markers = getMarkers();
+    const savedRoute = getRoute();
     sidebarMarkersList.innerHTML = "";
+
+    // Si hay un camino trazado, mostrar tarjeta destacada de la expedición
+    if (savedRoute && savedRoute.points && savedRoute.points.length >= 2) {
+      const routeCard = document.createElement("div");
+      routeCard.className = "sidebar-route-card";
+      routeCard.innerHTML = `
+        <div class="sidebar-route-header">
+          <div class="sidebar-route-title-wrap">
+            <span class="sidebar-route-emoji">🗺️</span>
+            <div>
+              <div class="sidebar-route-title">Camino de Expedición</div>
+              <div class="sidebar-route-sub">${savedRoute.totalHexes} hex • ${savedRoute.totalMiles} millas (${savedRoute.points.length} etapas)</div>
+            </div>
+          </div>
+          <button type="button" class="btn-sidebar-clear-route" title="Borrar este camino">🗑️ Borrar</button>
+        </div>
+      `;
+      routeCard.querySelector(".btn-sidebar-clear-route").addEventListener("click", (e) => {
+        e.stopPropagation();
+        clearRoute();
+        mapViewer.clearRoute();
+        renderSidebarList();
+      });
+      routeCard.addEventListener("click", () => {
+        const firstPt = savedRoute.points[0];
+        const percentX = (firstPt.x / 2816) * 100;
+        const percentY = (firstPt.y / 2048) * 100;
+        mapViewer.focusOnMarker(percentX, percentY, 1.2);
+        if (window.innerWidth <= 768) {
+          sidebarDrawer.classList.add("closed");
+          sidebarBackdrop.classList.add("hidden");
+        }
+      });
+      sidebarMarkersList.appendChild(routeCard);
+    }
 
     const filtered = markers.filter((m) => {
       if (currentFilterCategory !== "all" && m.icon !== currentFilterCategory) {
@@ -442,7 +488,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
       }
       if (searchQuery) {
-        const titleMatch = (m.title || "").toLowerCase().includes(searchQuery);
+        const typeInfo = getMarkerType(m.icon);
+        const displayTitle = m.title || typeInfo.label || "Marcador";
+        const titleMatch = displayTitle.toLowerCase().includes(searchQuery);
         const notesMatch = (m.notes || "").toLowerCase().includes(searchQuery);
         const dayMatch = (m.day || "").toLowerCase().includes(searchQuery);
         if (!titleMatch && !notesMatch && !dayMatch) return false;
@@ -469,7 +517,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="card-header-row">
           <div class="card-title-group">
             <span class="card-emoji">${typeInfo.emoji}</span>
-            <span class="card-title">${escapeHtml(m.title || "Marcador")}</span>
+            <span class="card-title">${escapeHtml(m.title || typeInfo.label || "Marcador")}</span>
           </div>
           <div class="card-meta-row">
             ${m.day ? `<span class="card-badge-day">${escapeHtml(m.day)}</span>` : ""}
@@ -495,8 +543,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================================================
   // Modal de Marcador (Crear y Editar)
   // ==========================================================================
-  function openCreateMarkerModal(percentX, percentY, iconType) {
-    modalTitle.textContent = "Nuevo Marcador";
+  function openCreateMarkerModal(percentX, percentY, iconType = "camp", hexId = null) {
+    modalTitle.textContent = hexId ? `Nuevo Marcador (Hex #${hexId})` : "Nuevo Marcador";
     markerFormId.value = "";
     markerFormX.value = percentX;
     markerFormY.value = percentY;
@@ -505,6 +553,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inputNotes.value = "";
     checkboxResolved.checked = false;
     btnDeleteMarker.classList.add("hidden");
+    if (btnMoveMarker) btnMoveMarker.classList.add("hidden");
 
     selectModalCategory(iconType);
     markerModal.classList.remove("hidden");
@@ -521,6 +570,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inputNotes.value = marker.notes || "";
     checkboxResolved.checked = !!marker.resolved;
     btnDeleteMarker.classList.remove("hidden");
+    if (btnMoveMarker) btnMoveMarker.classList.remove("hidden");
 
     selectModalCategory(marker.icon);
     markerModal.classList.remove("hidden");
@@ -547,7 +597,6 @@ document.addEventListener("DOMContentLoaded", () => {
   markerForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const title = inputTitle.value.trim();
-    if (!title) return;
 
     const markerData = {
       id: markerFormId.value || undefined,
@@ -564,6 +613,15 @@ document.addEventListener("DOMContentLoaded", () => {
     closeMarkerModal();
     setExploreMode();
   });
+
+  // Botón de reubicar marcador desde modal
+  if (btnMoveMarker) {
+    btnMoveMarker.addEventListener("click", () => {
+      pendingMoveMarkerId = markerFormId.value;
+      closeMarkerModal();
+      setMoveMarkerMode();
+    });
+  }
 
   // Eliminación con confirmación
   btnDeleteMarker.addEventListener("click", () => {
@@ -670,7 +728,15 @@ document.addEventListener("DOMContentLoaded", () => {
       document.exitFullscreen().catch(() => {});
     }
   });
-});
+
+  window.mapViewer = mapViewer;
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
 
 function escapeHtml(str) {
   if (!str) return "";

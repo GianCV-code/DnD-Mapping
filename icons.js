@@ -10,6 +10,24 @@ export const MARKER_TYPES = {
     borderColor: "#4ade80",
     description: "Bosque denso, selva cerrada o vegetación frondosa"
   },
+  river: {
+    id: "river",
+    label: "Río",
+    emoji: "🌊",
+    color: "#0284c7", // Azul río navegable
+    bgColor: "rgba(2, 132, 199, 0.25)",
+    borderColor: "#38bdf8",
+    description: "Ríos navegables, afluentes, rápidos, meandros o cascadas"
+  },
+  plains: {
+    id: "plains",
+    label: "Pradera",
+    emoji: "🌾",
+    color: "#84cc16", // Verde pradera / sabana
+    bgColor: "rgba(132, 204, 22, 0.25)",
+    borderColor: "#a3e635",
+    description: "Praderas abiertas, pastizales, sabana o claros llanos"
+  },
   mountain: {
     id: "mountain",
     label: "Montaña",
@@ -86,12 +104,12 @@ export const MARKER_TYPES = {
   },
   water: {
     id: "water",
-    label: "Agua / Río",
+    label: "Agua / Costa",
     emoji: "💧",
     color: "#06b6d4", // Cian agua
     bgColor: "rgba(6, 182, 212, 0.25)",
     borderColor: "#22d3ee",
-    description: "Manantiales limpios, pasos de río navegables o cascadas"
+    description: "Bahías, costas marítimas, lagos o manantiales"
   },
   mystery: {
     id: "mystery",
