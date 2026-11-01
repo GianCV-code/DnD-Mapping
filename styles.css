@@ -169,6 +169,44 @@ html, body {
   50% { box-shadow: 0 0 14px rgba(212, 175, 55, 0.4); }
 }
 
+/* Píldora de Sincronización en Tiempo Real */
+.status-pill.sync-online {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #4ade80;
+}
+.status-pill.sync-online .status-dot {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulse-sync 2s infinite ease-in-out;
+}
+
+.status-pill.sync-syncing {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.35);
+  color: #facc15;
+}
+.status-pill.sync-syncing .status-dot {
+  background: #eab308;
+  box-shadow: 0 0 8px #eab308;
+}
+
+.status-pill.sync-offline,
+.status-pill.sync-connecting {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #94a3b8;
+}
+.status-pill.sync-offline .status-dot,
+.status-pill.sync-connecting .status-dot {
+  background: #94a3b8;
+}
+
+@keyframes pulse-sync {
+  0%, 100% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.25); opacity: 1; }
+}
+
 /* ==========================================================================
    Botones
    ========================================================================== */
@@ -433,34 +471,42 @@ html, body {
   visibility: hidden !important;
 }
 
-/* Insignia Hexagonal con Borde y Resplandor (~1/3 del hexágono sin tapar el número) */
+/* Insignia Hexagonal con Borde y Sello Sepia con Acento Botánico (1/3 del hexágono: 44px x 38px) */
 .pin-badge {
-  width: 70px;
-  height: 70px;
+  width: 44px;
+  height: 38px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-  background: var(--pin-color, var(--gold-primary));
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 14px var(--pin-color, rgba(212, 175, 55, 0.5)));
+  background: #472c19;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.75));
   transition: all var(--transition-fast);
 }
 
 .pin-badge-inner {
   position: absolute;
-  inset: 3.5px;
-  background: #0d1513;
+  inset: 2px;
+  background: radial-gradient(circle at 40% 35%, #fbf5e8 0%, #ebe0c7 70%, #d8c3a0 100%);
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.pin-badge-inner svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--pin-color, #331d0f);
+  fill: var(--pin-color, #331d0f);
+  filter: drop-shadow(0 0.5px 0 rgba(255, 255, 255, 0.6));
+}
+
 .pin-emoji {
-  font-size: 2.15rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pin-check {
@@ -577,10 +623,36 @@ html, body {
   min-width: 0;
 }
 
-.pin-popup-emoji {
-  font-size: 1.15rem;
+.pin-popup-emoji,
+.pin-popup-icon-wrap {
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botanical-svg-wrap,
+.pin-popup-icon-wrap,
+.category-card-icon,
+.filter-pill-icon,
+.card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.botanical-svg-wrap svg,
+.pin-popup-icon-wrap svg,
+.category-card-icon svg,
+.filter-pill-icon svg,
+.card-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: currentColor;
 }
 
 .pin-popup-title {
@@ -1149,52 +1221,59 @@ html, body {
 }
 
 .party-badge {
-  width: 70px;
-  height: 70px;
-  min-width: 70px;
-  min-height: 70px;
+  width: 44px;
+  height: 38px;
+  min-width: 44px;
+  min-height: 38px;
   flex-shrink: 0;
-  aspect-ratio: 1 / 1;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-  background: linear-gradient(135deg, #eab308 0%, #dc2626 100%);
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 16px rgba(234, 179, 8, 0.7));
+  background: #472c19;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 10px rgba(163, 24, 51, 0.5));
   transition: all var(--transition-fast);
 }
 
 .party-badge-inner {
   position: absolute;
-  inset: 3.5px;
-  background: radial-gradient(circle at center, #26170d 0%, #0d1513 100%);
+  inset: 2px;
+  background: radial-gradient(circle at center, #fbf5e8 0%, #ebe0c7 75%, #d8c3a0 100%);
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.party-badge-inner svg {
+  width: 19px;
+  height: 19px;
+  stroke: #a31833;
+  fill: #a31833;
+  filter: drop-shadow(0 0.5px 0 rgba(255, 255, 255, 0.6));
+}
+
 .party-emoji {
-  font-size: 2.15rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .party-tag {
   position: absolute;
-  bottom: -7px;
+  bottom: -6px;
   left: 50%;
   transform: translateX(-50%);
-  background: #991b1b;
+  background: #8f1d1d;
   color: #ffffff;
-  font-size: 0.65rem;
+  font-size: 0.55rem;
   font-weight: 900;
-  letter-spacing: 1px;
-  padding: 1px 7px;
+  letter-spacing: 0.8px;
+  padding: 0px 5px;
   border-radius: var(--radius-sm);
   border: 1px solid #f87171;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   white-space: nowrap;
   z-index: 5;
 }
@@ -1212,17 +1291,17 @@ html, body {
 
 .party-pulse-ring {
   position: absolute;
-  width: 84px;
-  height: 84px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  border: 2px solid rgba(234, 179, 8, 0.75);
+  border: 1.5px solid rgba(234, 179, 8, 0.75);
   animation: party-beacon 2.5s infinite cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
 }
 
 @keyframes party-beacon {
-  0% { transform: scale(0.45); opacity: 1; }
-  100% { transform: scale(1.6); opacity: 0; }
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
 }
 
 /* Modal del Grupo */

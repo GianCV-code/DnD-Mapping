@@ -1,7 +1,23 @@
-// Administrador de almacenamiento local con preparación para Firebase
+// Administrador de almacenamiento con sincronización en tiempo real vía Firebase Cloud Firestore
+// y respaldo offline automático en localStorage
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
 const STORAGE_KEY = "chult_campaign_markers_v1";
 const PARTY_KEY = "chult_campaign_party_v1";
 const ROUTE_KEY = "chult_campaign_route_v1";
+
+// Configuración de Firebase para el proyecto existente: dnd-logros-campana-2026
+const firebaseConfig = {
+  projectId: "dnd-logros-campana-2026",
+  appId: "1:325350183699:web:ae13d228b43f30fe7a00e6",
+  storageBucket: "dnd-logros-campana-2026.firebasestorage.app",
+  apiKey: "AIzaSyCw9XVgRGuRQryjOiVv3c-kJGMSRgFGr2E",
+  authDomain: "dnd-logros-campana-2026.firebaseapp.com",
+  messagingSenderId: "325350183699",
+  measurementId: "G-83PZWF1WPM"
+};
 
 let listeners = [];
 let markersCache = null;
@@ -11,6 +27,116 @@ let partyCache = null;
 
 let routeListeners = [];
 let routeCache = null;
+
+let syncStatus = "connecting"; // 'online' | 'offline' | 'syncing'
+let syncListeners = [];
+
+let isRemoteUpdate = false;
+let db = null;
+let campaignDocRef = null;
+let syncDebounceTimer = null;
+
+// Inicialización de Firebase
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  campaignDocRef = doc(db, "chult_campaign", "main_state");
+
+  // Escucha en tiempo real (WebSockets / Long-Polling nativo de Firestore)
+  onSnapshot(campaignDocRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      isRemoteUpdate = true;
+
+      // 1. Sincronizar Marcadores
+      if (Array.isArray(data.markers)) {
+        markersCache = data.markers;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.markers));
+        } catch (e) {}
+        notifyListeners();
+      }
+
+      // 2. Sincronizar Grupo
+      if (data.party) {
+        partyCache = data.party;
+        try {
+          localStorage.setItem(PARTY_KEY, JSON.stringify(data.party));
+        } catch (e) {}
+        notifyPartyListeners();
+      }
+
+      // 3. Sincronizar Ruta
+      if (data.route !== undefined) {
+        routeCache = data.route;
+        try {
+          if (data.route) {
+            localStorage.setItem(ROUTE_KEY, JSON.stringify(data.route));
+          } else {
+            localStorage.removeItem(ROUTE_KEY);
+          }
+        } catch (e) {}
+        notifyRouteListeners();
+      }
+
+      isRemoteUpdate = false;
+      updateSyncStatus("online");
+    } else {
+      // El documento en la nube aún no existe; subimos el estado inicial
+      pushStateToCloud();
+      updateSyncStatus("online");
+    }
+  }, (error) => {
+    console.warn("Aviso Firebase Firestore (usando respaldo local):", error.message);
+    updateSyncStatus("offline");
+  });
+} catch (err) {
+  console.warn("Aviso inicialización Firebase (usando respaldo local):", err);
+  updateSyncStatus("offline");
+}
+
+// Envío diferido a Firestore (Debounce) para optimizar escrituras
+function pushStateToCloud() {
+  if (!db || !campaignDocRef || isRemoteUpdate) return;
+  updateSyncStatus("syncing");
+
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+  }
+
+  syncDebounceTimer = setTimeout(async () => {
+    try {
+      const payload = {
+        markers: getMarkers(),
+        party: getPartyPosition(),
+        route: getRoute(),
+        updatedAt: Date.now()
+      };
+      await setDoc(campaignDocRef, payload, { merge: true });
+      updateSyncStatus("online");
+    } catch (err) {
+      console.warn("Error guardando en Firestore:", err);
+      updateSyncStatus("offline");
+    }
+  }, 300);
+}
+
+// Notificador de Estado de Sincronización
+export function subscribeSyncStatus(callback) {
+  syncListeners.push(callback);
+  callback(syncStatus);
+  return () => {
+    syncListeners = syncListeners.filter(cb => cb !== callback);
+  };
+}
+
+function updateSyncStatus(status) {
+  if (syncStatus === status) return;
+  syncStatus = status;
+  syncListeners.forEach(cb => {
+    try { cb(syncStatus); } catch (e) { console.error(e); }
+  });
+}
 
 // --- Marcadores ---
 export function getMarkers() {
@@ -22,7 +148,7 @@ export function getMarkers() {
     markersCache = raw ? JSON.parse(raw) : getInitialSeedMarkers();
   } catch (err) {
     console.error("Error leyendo localStorage:", err);
-    markersCache = [];
+    markersCache = getInitialSeedMarkers();
   }
   return markersCache;
 }
@@ -73,6 +199,7 @@ export function saveMarker(markerData) {
 
   persistMarkers(markers);
   notifyListeners();
+  pushStateToCloud();
   return markerData;
 }
 
@@ -81,6 +208,7 @@ export function deleteMarker(markerId) {
   markers = markers.filter(m => m.id !== markerId);
   persistMarkers(markers);
   notifyListeners();
+  pushStateToCloud();
 }
 
 function persistMarkers(markers) {
@@ -117,6 +245,13 @@ export function subscribeParty(callback) {
   };
 }
 
+function notifyPartyListeners() {
+  const data = getPartyPosition();
+  partyListeners.forEach(cb => {
+    try { cb(data); } catch (e) { console.error(e); }
+  });
+}
+
 export function savePartyPosition(posData) {
   const current = getPartyPosition();
   partyCache = {
@@ -129,9 +264,8 @@ export function savePartyPosition(posData) {
   } catch (err) {
     console.error("Error guardando posición del grupo:", err);
   }
-  partyListeners.forEach(cb => {
-    try { cb(partyCache); } catch (e) { console.error(e); }
-  });
+  notifyPartyListeners();
+  pushStateToCloud();
   return partyCache;
 }
 
@@ -155,6 +289,13 @@ export function subscribeRoute(callback) {
   };
 }
 
+function notifyRouteListeners() {
+  const data = getRoute();
+  routeListeners.forEach(cb => {
+    try { cb(data); } catch (e) { console.error(e); }
+  });
+}
+
 export function saveRoute(routeData) {
   routeCache = routeData;
   try {
@@ -166,9 +307,8 @@ export function saveRoute(routeData) {
   } catch (err) {
     console.error("Error guardando ruta:", err);
   }
-  routeListeners.forEach(cb => {
-    try { cb(routeCache); } catch (e) { console.error(e); }
-  });
+  notifyRouteListeners();
+  pushStateToCloud();
   return routeCache;
 }
 
@@ -202,12 +342,11 @@ export function importBackup(file) {
       try {
         const imported = JSON.parse(e.target.result);
         if (Array.isArray(imported)) {
-          // Versión previa simple (solo array de marcadores)
           persistMarkers(imported);
           notifyListeners();
+          pushStateToCloud();
           resolve(imported.length);
         } else if (imported && Array.isArray(imported.markers)) {
-          // Versión 2 o 3 con grupo, ruta y marcadores
           persistMarkers(imported.markers);
           notifyListeners();
           if (imported.party) {
@@ -216,6 +355,7 @@ export function importBackup(file) {
           if (imported.route !== undefined) {
             saveRoute(imported.route);
           }
+          pushStateToCloud();
           resolve(imported.markers.length);
         } else {
           reject(new Error("El archivo no tiene el formato de campaña esperado."));
@@ -229,7 +369,7 @@ export function importBackup(file) {
   });
 }
 
-// Marcadores iniciales de ejemplo para que la app no inicie vacía en Port Nyanzaru
+// Marcadores iniciales de ejemplo para Chult
 function getInitialSeedMarkers() {
   return [
     {

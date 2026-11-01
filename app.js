@@ -13,7 +13,8 @@ import {
   clearRoute,
   subscribeRoute,
   exportBackup,
-  importBackup
+  importBackup,
+  subscribeSyncStatus
 } from "./storage.js";
 import { MapViewer } from "./map-viewer.js";
 
@@ -35,6 +36,26 @@ function initApp() {
   const measureSvgEl = document.getElementById("measure-svg");
   const routeBadgeEl = document.getElementById("route-badge");
   const measureBadgeEl = document.getElementById("measure-badge");
+
+  // Indicador de Sincronización en Tiempo Real
+  const syncStatusPill = document.getElementById("sync-status-pill");
+  const syncText = document.getElementById("sync-text");
+
+  if (syncStatusPill && syncText) {
+    subscribeSyncStatus((status) => {
+      syncStatusPill.className = `status-pill sync-${status}`;
+      if (status === "online") {
+        syncText.textContent = "En vivo (Nube)";
+        syncStatusPill.title = "Sincronizado en tiempo real con Firebase Firestore. Todos los jugadores ven los cambios al instante.";
+      } else if (status === "syncing") {
+        syncText.textContent = "Guardando...";
+        syncStatusPill.title = "Guardando cambios en la nube...";
+      } else {
+        syncText.textContent = "Modo Local";
+        syncStatusPill.title = "Trabajando con respaldo local.";
+      }
+    });
+  }
 
   // Barra de estado y modo
   const modeStatusPill = document.getElementById("mode-status-pill");
@@ -349,7 +370,7 @@ function initApp() {
       card.style.setProperty("--opt-bg", type.bgColor);
       card.style.setProperty("--opt-border", type.borderColor);
       card.innerHTML = `
-        <span class="category-card-emoji">${type.emoji}</span>
+        <span class="category-card-icon" style="color: ${type.color}; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;">${type.svg}</span>
         <span class="category-card-label">${type.label}</span>
       `;
       card.addEventListener("click", () => {
@@ -421,7 +442,7 @@ function initApp() {
       pill.className = `filter-pill ${currentFilterCategory === type.id ? "active" : ""}`;
       pill.style.setProperty("--pill-bg", type.bgColor);
       pill.style.setProperty("--pill-border", type.borderColor);
-      pill.innerHTML = `<span>${type.emoji}</span> <span>${type.label}</span> <span class="badge-count">${count}</span>`;
+      pill.innerHTML = `<span class="filter-pill-icon" style="color: ${type.color}; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center;">${type.svg}</span> <span>${type.label}</span> <span class="badge-count">${count}</span>`;
       pill.addEventListener("click", () => {
         currentFilterCategory = type.id;
         renderFilterPills();
@@ -516,7 +537,7 @@ function initApp() {
       card.innerHTML = `
         <div class="card-header-row">
           <div class="card-title-group">
-            <span class="card-emoji">${typeInfo.emoji}</span>
+            <span class="card-icon" style="color: ${typeInfo.color}; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;">${typeInfo.svg}</span>
             <span class="card-title">${escapeHtml(m.title || typeInfo.label || "Marcador")}</span>
           </div>
           <div class="card-meta-row">

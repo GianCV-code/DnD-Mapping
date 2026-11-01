@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DnD Mapping — 6 Variaciones del Sello Sepia Hexagonal (1/3 Hex)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #120e0a;
+      --card-bg: #1c1510;
+      --card-border: #3b2a1c;
+      --parchment: #f4ecdc;
+      --parchment-deep: #e3d4b8;
+      --sepia-dark: #2c180d;
+      --sepia-ink: #3c2415;
+      --sepia-soft: #634731;
+      --gold: #d4a754;
+      --gold-bright: #ffd166;
+      --text: #ede4d1;
+      --text-muted: #a69882;
+      
+      /* Dimensiones exactas: El hexágono del mapa mide 128px de alto */
+      /* 1/3 del hexágono con lado superior plano (flat-topped) = 44px ancho x 38px alto */
+      --hex-pin-width: 44px;
+      --hex-pin-height: 38px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, #261a11 0%, #0c0907 100%);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 24px 20px 100px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--card-border);
+      position: relative;
+    }
+
+    header::after {
+      content: "❖ ❖ ❖";
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #18120c;
+      padding: 0 16px;
+      color: var(--gold);
+      font-size: 13px;
+      letter-spacing: 4px;
+    }
+
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 2.1rem;
+      color: var(--gold);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(212,167,84,0.3);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 860px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* BADGE DE ESPECIFICACIÓN TÉCNICA */
+    .specs-badge-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .spec-chip {
+      background: rgba(212, 167, 84, 0.1);
+      border: 1px solid rgba(212, 167, 84, 0.35);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 0.85rem;
+      color: var(--gold-bright);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 500;
+    }
+
+    /* PROPORCIÓN EN VIVO: COMPARADOR HEXÁGONO REAL DE CHULT */
+    .hex-proportion-demo-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 32px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .proportion-texts {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .proportion-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.25rem;
+      color: var(--gold);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .proportion-desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    .proportion-interactive-view {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      background: #110d0a;
+      padding: 16px 20px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+    }
+
+    /* Simulación a escala 1:1 de un hexágono real de 128px del mapa */
+    .real-hex-frame {
+      width: 111px;
+      height: 128px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #d8c7a6;
+      background-image: url('MAPS - Chult 2.0 PC.png');
+      background-size: 1400px;
+      background-position: 84% 16%;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+      border: 1px dashed rgba(60, 36, 21, 0.6);
+    }
+
+    .real-hex-number {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: Georgia, serif;
+      font-size: 13px;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .real-hex-center-pin {
+      position: absolute;
+      top: 54%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+      transition: all 0.2s ease;
+    }
+
+    .real-hex-stats {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .real-hex-stats strong {
+      color: var(--gold-bright);
+    }
+
+    /* SELECTOR DE LAS 6 VARIACIONES */
+    .variations-nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .var-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .var-btn:hover {
+      border-color: var(--gold);
+      color: var(--text);
+      transform: translateY(-2px);
+    }
+
+    .var-btn.active {
+      background: linear-gradient(180deg, #382516 0%, #22150b 100%);
+      border-color: var(--gold);
+      color: var(--gold-bright);
+      box-shadow: 0 0 14px rgba(212, 167, 84, 0.3);
+    }
+
+    .var-btn-subtitle {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      opacity: 0.85;
+    }
+
+    /* BANNER DE DETALLE DE LA VARIACIÓN ACTIVA */
+    .variation-info-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--gold);
+      border-radius: 8px;
+      padding: 18px 22px;
+      margin-bottom: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .var-info-left h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.15rem;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .var-info-left p {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .var-samples-preview {
+      display: flex;
+      gap: 12px;
+      background: #110d09;
+      padding: 10px 16px;
+      border-radius: 30px;
+      border: 1px solid var(--card-border);
+      flex-shrink: 0;
+    }
+
+    /* MAPA EN VIVO */
+    .map-preview-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 36px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.3rem;
+      color: var(--gold);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 18px;
+    }
+
+    .map-mockup {
+      width: 100%;
+      height: 380px;
+      border-radius: 8px;
+      border: 2px solid #4a3828;
+      background-color: #d8c7a5;
+      background-image: url('MAPS - Chult 2.0 PC - Numerado.png');
+      background-size: 1300px;
+      background-position: 86% 16%;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 60px rgba(43, 29, 12, 0.6);
+    }
+
+    .map-overlay-vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle, transparent 65%, rgba(18, 12, 7, 0.5) 100%);
+      pointer-events: none;
+    }
+
+    .mock-pin {
+      position: absolute;
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 10;
+    }
+
+    .mock-pin:hover {
+      transform: translate(-50%, -55%) scale(1.18);
+      z-index: 30;
+    }
+
+    .mock-pin-tooltip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(26, 17, 10, 0.96);
+      color: var(--parchment);
+      border: 1px solid var(--gold);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+      font-family: 'Cinzel', serif;
+    }
+
+    .mock-pin:hover .mock-pin-tooltip {
+      opacity: 1;
+    }
+
+    /* GRID COMPARATIVO DE LOS 15 ÍCONOS */
+    .grid-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .icon-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .icon-card:hover {
+      border-color: var(--gold);
+      transform: translateY(-2px);
+    }
+
+    .icon-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: 8px;
+    }
+
+    .icon-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-old-emoji {
+      font-size: 16px;
+      opacity: 0.5;
+    }
+
+    .icon-name {
+      font-family: 'Cinzel', serif;
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .icon-category-tag {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .icon-vars-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .var-cell {
+      background: #130e0a;
+      border: 1px solid #281d14;
+      border-radius: 6px;
+      padding: 8px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .var-cell:hover {
+      border-color: var(--gold);
+      background: #22160d;
+    }
+
+    .var-cell.active-preview {
+      border-color: var(--gold-bright);
+      background: #2b1b10;
+      box-shadow: 0 0 10px rgba(212, 167, 84, 0.25);
+    }
+
+    .var-cell-label {
+      font-size: 8.5px;
+      font-family: 'Cinzel', serif;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .icon-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+      font-style: italic;
+    }
+
+    /* =========================================================================
+       CSS DE LAS 6 VARIACIONES DEL SELLO SEPIA HEXAGONAL (1/3 DEL HEXÁGONO)
+       ========================================================================= */
+
+    /* CONTENEDOR BASE: Exactamente 1/3 del hexágono (40px x 44px) */
+    .dnd-hex-pin {
+      width: var(--hex-pin-width);
+      height: var(--hex-pin-height);
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
+      transition: all 0.18s ease;
+    }
+
+    .dnd-hex-pin svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      z-index: 2;
+    }
+
+    /* -------------------------------------------------------------------------
+       VARIACIÓN 1: "Sello Pergamino Clásico" (Parchment Ink Stamp)
+       Fondo pergamino cálido (#f5ecda), doble borde hexagonal en tinta sepia.
+       Icono plano en tinta oscura. Aspecto de grabado físico tradicional.
+       ------------------------------------------------------------------------- */
+    .var-1-parchment {
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: radial-gradient(circle at 40% 35%, #faf4e6 0%, #ede0c6 70%, #d8c39e 100%);
+    }
+    .var-1-parchment::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #3c2415;
+    }
+    .var-1-parchment::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: radial-gradient(circle at 40% 35%, #faf4e6 0%, #ede0c6 75%, #d8c39e 100%);
+    }
+    .var-1-parchment svg {
+      stroke: #331d0f;
+      fill: #331d0f;
+      filter: drop-shadow(0 0.5px 0 rgba(255,255,255,0.6));
+    }
+
+    /* -------------------------------------------------------------------------
+       VARIACIÓN 2: "Sello de Tinta Invertida / Xilografía" (Solid Ink Carve)
+       Hexágono sólido en tinta sepia profunda (#2c170b) con el icono plano en 
+       marfil pergamino (#faf4e6). Máximo contraste visual a cualquier distancia.
+       ------------------------------------------------------------------------- */
+    .var-2-solid-ink {
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #241308;
+    }
+    .var-2-solid-ink::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #cbb184;
+    }
+    .var-2-solid-ink::after {
+      content: "";
+      position: absolute;
+      inset: 1.5px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: radial-gradient(circle at 40% 35%, #3c2313 0%, #29160a 80%, #1a0d05 100%);
+    }
+    .var-2-solid-ink svg {
+      stroke: #faf3e1;
+      fill: #faf3e1;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,0.8));
+    }
+
+    /* -------------------------------------------------------------------------
+       VARIACIÓN 3: "Trazo Sepia Translúcido" (Translucent Ink Contour)
+       Fondo semitransparente con halo sepia muy suave. No tapa el terreno ni
+       las montañas del mapa, solo dibuja el marco hexagonal y el glifo plano.
+       ------------------------------------------------------------------------- */
+    .var-3-translucent {
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #3c2415;
+    }
+    .var-3-translucent::after {
+      content: "";
+      position: absolute;
+      inset: 1.5px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: rgba(246, 238, 222, 0.72);
+      backdrop-filter: blur(2px);
+    }
+    .var-3-translucent svg {
+      stroke: #251408;
+      fill: #251408;
+      filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));
+    }
+
+    /* -------------------------------------------------------------------------
+       VARIACIÓN 4: "Sello Imperial de Oro Viejo & Sepia" (Antique Gold Filigree)
+       Hexágono pergamino con doble filete en oro envejecido y vértices acentuados.
+       Tono refinado digno de los Príncipes Mercantes o los Caballeros del Guantelete.
+       ------------------------------------------------------------------------- */
+    .var-4-gold-rim {
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #c49942;
+    }
+    .var-4-gold-rim::before {
+      content: "";
+      position: absolute;
+      inset: 1.5px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #28170c;
+    }
+    .var-4-gold-rim::after {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: radial-gradient(circle at 40% 35%, #faf4e8 0%, #eee1c8 85%, #d4bc94 100%);
+    }
+    .var-4-gold-rim svg {
+      stroke: #381f0e;
+      fill: #381f0e;
+      filter: drop-shadow(0 0.5px 0 rgba(255,255,255,0.7));
+    }
+
+    /* -------------------------------------------------------------------------
+       VARIACIÓN 5: "Sello Sepia con Acento Botánico / Bioma" (Muted Earth Tint)
+       Fondo pergamino idéntico al Sello Sepia, pero el icono interior adopta un 
+       color botánico apagado (verde musgo, azul añil, teja carmesí, ocre cálido).
+       ------------------------------------------------------------------------- */
+    .var-5-earth-accent {
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #472c19;
+    }
+    .var-5-earth-accent::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: radial-gradient(circle at 40% 35%, #fbf5e8 0%, #ebe0c7 70%, #d8c3a0 100%);
+    }
+    .var-5-earth-accent svg {
+      stroke: var(--icon-muted-tint, #331d0f);
+      fill: var(--icon-muted-tint, #331d0f);
+      filter: drop-shadow(0 0.5px 0 rgba(255,255,255,0.6));
+    }
+
+    /* -------------------------------------------------------------------------
+       VARIACIÓN 6: "Hexágono Flat Minimalista Puro" (Minimal Pure Flat)
+       La silueta más limpia y moderna: marco sepia nítido de 1.5px, fondo liso
+       marfil pergamino y glifo geométrico ultra-plano de alto rendimiento visual.
+       ------------------------------------------------------------------------- */
+    .var-6-minimal-flat {
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #2b170c;
+    }
+    .var-6-minimal-flat::after {
+      content: "";
+      position: absolute;
+      inset: 1.5px;
+      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      background: #f7f0e1;
+    }
+    .var-6-minimal-flat svg {
+      stroke: #251206;
+      fill: #251206;
+    }
+
+    /* BARRA FLOTANTE INFERIOR */
+    .bottom-cta {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(28, 19, 12, 0.96);
+      border: 1px solid var(--gold);
+      border-radius: 40px;
+      padding: 10px 22px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.8), 0 0 20px rgba(212,167,84,0.25);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 1000;
+    }
+
+    .cta-text {
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+    .cta-text strong {
+      color: var(--gold-bright);
+    }
+
+    .cta-btn {
+      background: linear-gradient(180deg, #d4a754 0%, #aa7c28 100%);
+      color: #1a0f05;
+      font-weight: 700;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>6 Iteraciones: Sello Sepia Hexagonal</h1>
+    <p class="subtitle">
+      Evolución directa del concepto <em>"Sello de Tinta Sepia"</em>: ahora con <strong>geometría 100% hexagonal</strong>, tamaño calibrado exactamente a <strong>1/3 del hexágono del mapa</strong> (40x44px) y arte vectorial mucho más <strong>plano, limpio y legible</strong>.
+    </p>
+
+    <div class="specs-badge-bar">
+      <div class="spec-chip">📐 Forma: Hexágono Puro (Pointy-Topped)</div>
+      <div class="spec-chip">📏 Escala: 1/3 exacto del Hexágono (40 × 44 px)</div>
+      <div class="spec-chip">🎨 Paleta: Tinta Sepia Quemada & Pergamino Chult</div>
+      <div class="spec-chip">✨ Arte: Siluetas Vectoriales Flat de Alto Contraste</div>
+    </div>
+  </header>
+
+  <!-- MÓDULO INTERACTIVO: COMPARADOR A ESCALA REAL 1:1 CON EL HEXÁGONO DE CHULT -->
+  <div class="hex-proportion-demo-box">
+    <div class="proportion-texts">
+      <div class="proportion-title">
+        <span>🔍</span> Comprobación de Proporción Real en 1 Hexágono (128 px)
+      </div>
+      <p class="proportion-desc">
+        En la cuadrícula original del mapa de Chult, cada hexágono mide <strong>128 píxeles de alto</strong>. Al diseñar los pines a <strong>44 píxeles de alto</strong> (exactamente 1/3), se garantiza que el pin quede centrado <strong>sin tapar el número superior del hexágono (#1604)</strong> y dejando libre el 70% del terreno visible.
+      </p>
+    </div>
+
+    <div class="proportion-interactive-view">
+      <!-- Representación exacta a escala 1:1 del hexágono con su número -->
+      <div class="real-hex-frame">
+        <span class="real-hex-number">1604</span>
+        <div class="real-hex-center-pin" id="hex-center-pin-slot">
+          <!-- Pin cargado dinámicamente -->
+        </div>
+      </div>
+
+      <div class="real-hex-stats">
+        <span>Alto del hexágono: <strong>128 px</strong></span>
+        <span>Alto del pin (1/3): <strong>44 px</strong></span>
+        <span>Ancho del pin: <strong>40 px</strong></span>
+        <span>Número del hex: <strong style="color: #4ade80;">100% Visible</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELECTOR DE LAS 6 VARIACIONES DEL SELLO SEPIA -->
+  <div class="variations-nav">
+    <button class="var-btn active" data-var="1" onclick="switchVariation(1)">
+      <span>1. Pergamino Clásico</span>
+      <span class="var-btn-subtitle">Fondo pergamino, trazo sepia doble</span>
+    </button>
+    <button class="var-btn" data-var="2" onclick="switchVariation(2)">
+      <span>2. Tinta Invertida</span>
+      <span class="var-btn-subtitle">Hexágono sepia sólido, glifo en marfil</span>
+    </button>
+    <button class="var-btn" data-var="3" onclick="switchVariation(3)">
+      <span>3. Trazo Translúcido</span>
+      <span class="var-btn-subtitle">Halo suave, deja ver el mapa al fondo</span>
+    </button>
+    <button class="var-btn" data-var="4" onclick="switchVariation(4)">
+      <span>4. Ribete Oro Viejo</span>
+      <span class="var-btn-subtitle">Doble filete en oro bruñido y sepia</span>
+    </button>
+    <button class="var-btn" data-var="5" onclick="switchVariation(5)">
+      <span>5. Acento Botánico</span>
+      <span class="var-btn-subtitle">Sello sepia con tinte sutil de bioma</span>
+    </button>
+    <button class="var-btn" data-var="6" onclick="switchVariation(6)">
+      <span>6. Minimalista Plano</span>
+      <span class="var-btn-subtitle">Línea nítida de 1.5px, máxima sobriedad</span>
+    </button>
+  </div>
+
+  <!-- TARJETA EXPLICATIVA DE LA VARIACIÓN ACTIVA -->
+  <div class="variation-info-card">
+    <div class="var-info-left">
+      <h3 id="var-title">Variación 1: Sello Pergamino Clásico (Parchment Ink Stamp)</h3>
+      <p id="var-desc">
+        Hexágono troquelado en pergamino suave con doble ribete en tinta sepia oscura. El glifo interior es un trazo vectorial plano de alto impacto visual. Máxima fidelidad con la cartografía histórica de Tomb of Annihilation.
+      </p>
+    </div>
+    <div class="var-samples-preview">
+      <div id="var-sample-icons" style="display: flex; gap: 8px;"></div>
+    </div>
+  </div>
+
+  <!-- VISTA PREVIA SOBRE EL MAPA REAL EN 1/3 DEL HEXÁGONO -->
+  <div class="map-preview-section">
+    <div class="section-title">
+      <span>🗺️</span> Vista Previa en Vivo sobre el Terreno de Chult (Escala 1/3)
+    </div>
+    <p class="section-desc">
+      Observa cómo cada pin hexagonal ocupa exactamente 1/3 del espacio de su celda, permitiendo leer los números de los hexágonos y apreciar los accidentes geográficos circundantes:
+    </p>
+
+    <div class="map-mockup">
+      <div class="map-overlay-vignette"></div>
+
+      <!-- Pines en posiciones reales de Chult -->
+      <div class="mock-pin" style="left: 88%; top: 18%;">
+        <div class="mock-pin-tooltip">#0102 Puerto Nyanzaru</div>
+        <div class="mock-pin-slot" data-icon="settlement"></div>
+      </div>
+
+      <div class="mock-pin" style="left: 77%; top: 32%;">
+        <div class="mock-pin-tooltip">#0405 Campamento Venganza</div>
+        <div class="mock-pin-slot" data-icon="camp"></div>
+      </div>
+
+      <div class="mock-pin" style="left: 65%; top: 22%;">
+        <div class="mock-pin-tooltip">#0703 Río Soshenstar</div>
+        <div class="mock-pin-slot" data-icon="river"></div>
+      </div>
+
+      <div class="mock-pin" style="left: 55%; top: 40%;">
+        <div class="mock-pin-tooltip">#0906 Mbala / Ruinas Antiguas</div>
+        <div class="mock-pin-slot" data-icon="ruins"></div>
+      </div>
+
+      <div class="mock-pin" style="left: 82%; top: 52%;">
+        <div class="mock-pin-tooltip">#0308 Emboscada Dinosaurio</div>
+        <div class="mock-pin-slot" data-icon="danger"></div>
+      </div>
+
+      <div class="mock-pin" style="left: 45%; top: 62%;">
+        <div class="mock-pin-tooltip">#1210 Cordillera de Picos</div>
+        <div class="mock-pin-slot" data-icon="mountain"></div>
+      </div>
+
+      <div class="mock-pin" style="left: 70%; top: 48%;">
+        <div class="mock-pin-tooltip">📍 Grupo de Aventureros</div>
+        <div class="mock-pin-slot" data-icon="party"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUADRÍCULA COMPARATIVA DE LOS 15 ÍCONOS EN LAS 6 VARIACIONES -->
+  <div class="section-title" style="margin-bottom: 14px;">
+    <span>⚔️</span> Catálogo de los 14 Íconos + Token del Grupo en las 6 Variaciones
+  </div>
+  <p class="section-desc">
+    Compara los glifos planos rediseñados en cada una de las 6 alternativas. Pulsa en cualquier casilla para previsualizarla en grande.
+  </p>
+
+  <div class="grid-view" id="icon-cards-container">
+    <!-- Generado dinámicamente -->
+  </div>
+</div>
+
+<!-- BARRA FLOTANTE INFERIOR -->
+<div class="bottom-cta">
+  <div class="cta-text">
+    Variación activa: <strong id="cta-active-var-name">1. Pergamino Clásico</strong>
+  </div>
+  <button class="cta-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">Subir Arriba</button>
+</div>
+
+<!-- =========================================================================
+     JAVASCRIPT: DATOS VECTORIALES ULTRA-PLANOS Y LÓGICA DE INTERACCIÓN
+     ========================================================================= -->
+<script>
+// Íconos vectoriales rediseñados: siluetas planas, minimalistas y de trazo limpio
+const FLAT_ICONS_DB = {
+  forest: {
+    name: "Bosque / Selva",
+    category: "Terreno",
+    oldEmoji: "🌲",
+    mutedColor: "#2d5a27", // Verde bosque envejecido
+    desc: "Copa de árbol estilizada y simétrica con tronco limpio.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L5 10h4l-3 6h4v4h4v-4h4l-3-6h4L12 2z"/>
+    </svg>`
+  },
+  river: {
+    name: "Río Navegable",
+    category: "Terreno",
+    oldEmoji: "🌊",
+    mutedColor: "#1d6a8a", // Azul río añejo
+    desc: "Líneas serpenteantes planas representando corrientes de agua.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M3 7c4-3 7 3 11 0s5 3 7 0"/>
+      <path d="M3 12c4-3 7 3 11 0s5 3 7 0"/>
+      <path d="M3 17c4-3 7 3 11 0s5 3 7 0"/>
+    </svg>`
+  },
+  plains: {
+    name: "Pradera / Sabana",
+    category: "Terreno",
+    oldEmoji: "🌾",
+    mutedColor: "#5f7028", // Verde oliva sabana
+    desc: "Espigas estilizadas de hierba alta de la sabana de Chult.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 21V11c0-3 3-5 6-7v17"/>
+      <path d="M12 4c2 2 3 4 3 6-2 1-3 0-3-6z"/>
+      <path d="M6 13c-2 2-3 4-3 6 2 1 3 0 3-6z"/>
+      <path d="M12 11c2 2 3 4 3 6-2 1-3 0-3-6z"/>
+    </svg>`
+  },
+  mountain: {
+    name: "Montaña / Picos",
+    category: "Terreno",
+    oldEmoji: "⛰️",
+    mutedColor: "#525964", // Gris pizarra
+    desc: "Silueta pura de dos picos con arista divisoria.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 20L10 5l5 9 2-3 5 9H2z"/>
+      <path d="M10 5l2 9"/>
+    </svg>`
+  },
+  hill: {
+    name: "Colina / Meseta",
+    category: "Terreno",
+    oldEmoji: "🌄",
+    mutedColor: "#93561a", // Ocre arcilla
+    desc: "Dos lomas onduladas concéntricas con trazo sobrio.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M2 19c4-6 9-7 14-3 2 1 4 2 6 3"/>
+      <path d="M10 14c3-4 6-5 10-1"/>
+      <path d="M2 19h20"/>
+    </svg>`
+  },
+  swamp: {
+    name: "Pantano / Ciénaga",
+    category: "Terreno",
+    oldEmoji: "🐊",
+    mutedColor: "#1b5e58", // Verde ciénaga
+    desc: "Juncos saliendo de ondas de agua estancada.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 20V8c0-1.5 2-1.5 2 0v12"/>
+      <path d="M14 20V5c0-1.5 2-1.5 2 0v15"/>
+      <path d="M3 16c3-1 6 1 9 0s6-1 9 0"/>
+      <path d="M3 20h18"/>
+    </svg>`
+  },
+  camp: {
+    name: "Campamento / Vivac",
+    category: "Expedición",
+    oldEmoji: "⛺",
+    color: "#286629",
+    mutedColor: "#286629", // Verde campamento
+    desc: "Tienda de campaña de expedición con puerta abierta y vientos.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 21L12 4l9 17H3z"/>
+      <path d="M12 4v17"/>
+      <path d="M9 21l3-7 3 7"/>
+    </svg>`
+  },
+  ruins: {
+    name: "Ruinas / Templo",
+    category: "Expedición",
+    oldEmoji: "🏛️",
+    mutedColor: "#673385", // Púrpura antiguo
+    desc: "Frontón clásico con columnas dóricas rotas de Mezro.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 21h18"/>
+      <path d="M4 8h16"/>
+      <path d="M12 2l9 6H3l9-6z"/>
+      <path d="M6 8v13M10 8v13M14 8v13M18 8v7"/>
+    </svg>`
+  },
+  danger: {
+    name: "Peligro / Combate",
+    category: "Expedición",
+    oldEmoji: "💀",
+    mutedColor: "#8f1d1d", // Rojo óxido / sangre seca
+    desc: "Calavera flat estilizada y simétrica sin recargar.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2a7 7 0 0 0-7 7c0 3 1.5 5 3 6v4h8v-4c1.5-1 3-3 3-6a7 7 0 0 0-7-7z"/>
+      <circle cx="9" cy="9" r="1.5" fill="currentColor"/>
+      <circle cx="15" cy="9" r="1.5" fill="currentColor"/>
+      <path d="M10 16v3M14 16v3"/>
+    </svg>`
+  },
+  treasure: {
+    name: "Tesoro / Botín",
+    category: "Expedición",
+    oldEmoji: "💎",
+    mutedColor: "#9e700a", // Oro viejo
+    desc: "Cofre con bisagra y cerrojo plano central.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 8h18v12H3z"/>
+      <path d="M3 12h18"/>
+      <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
+      <path d="M5 4h14l2 4H3l2-4z"/>
+    </svg>`
+  },
+  settlement: {
+    name: "Asentamiento / Aliado",
+    category: "Civilización",
+    oldEmoji: "🏰",
+    mutedColor: "#1d4782", // Azul heráldico colonial
+    desc: "Torre almenada con arco de entrada y aspillera.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 21V6l2-2h10l2 2v15"/>
+      <path d="M5 6h14"/>
+      <path d="M8 3v3M12 3v3M16 3v3"/>
+      <path d="M9 21v-5a3 3 0 0 1 6 0v5"/>
+      <circle cx="12" cy="10" r="1" fill="currentColor"/>
+    </svg>`
+  },
+  water: {
+    name: "Costa / Bahía",
+    category: "Terreno",
+    oldEmoji: "💧",
+    mutedColor: "#0f6c7a", // Cian marino profundo
+    desc: "Ancla marinera clásica simplificada.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <circle cx="12" cy="5" r="2.5"/>
+      <path d="M12 7.5V20"/>
+      <path d="M8 10h8"/>
+      <path d="M5 14c0 4 3 6 7 6s7-2 7-6"/>
+    </svg>`
+  },
+  mystery: {
+    name: "Misterio / Pista",
+    category: "Expedición",
+    oldEmoji: "❓",
+    mutedColor: "#ad4b0f", // Naranja terracota
+    desc: "Ojo místico estilizado de las tribus chultanas.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>
+      <circle cx="12" cy="12" r="3"/>
+      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+    </svg>`
+  },
+  note: {
+    name: "Nota Libre / Diario",
+    category: "Diario",
+    oldEmoji: "📝",
+    mutedColor: "#58524d", // Carbón vegetal
+    desc: "Rollo de pergamino atado con sello de lacre.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>
+      <path d="M14 2v5h5"/>
+      <path d="M8 12h8M8 16h5"/>
+    </svg>`
+  },
+  party: {
+    name: "Grupo de Aventureros",
+    category: "Especial",
+    oldEmoji: "⚔️",
+    mutedColor: "#a31833", // Carmesí aventurero
+    desc: "Dos espadas de acero cruzadas con gavilanes limpios.",
+    svg: `<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 2l5 5-2 2-5-5V2h2z"/>
+      <path d="M19 2l-5 5 2 2 5-5V2h-2z"/>
+      <path d="M7 7l10 10M17 7L7 17"/>
+      <path d="M4 22l4-4-2-2-4 4v2h2z"/>
+      <path d="M20 22l-4-4 2-2 4 4v2h-2z"/>
+    </svg>`
+  }
+};
+
+const VARIATIONS_INFO = {
+  1: {
+    title: "Variación 1: Sello Pergamino Clásico (Parchment Ink Stamp)",
+    desc: "Hexágono en tono pergamino suave con doble ribete fino en tinta sepia oscura (#3c2415). El ícono interior es una silueta pura de tinta. Es el diseño más fiel a un sello de madera manual sobre el mapa original.",
+    name: "1. Pergamino Clásico",
+    class: "var-1-parchment"
+  },
+  2: {
+    title: "Variación 2: Tinta Invertida / Xilografía (Solid Ink Carve)",
+    desc: "Hexágono sólido en tinta sepia profunda con fino ribete exterior y el glifo calado en blanco pergamino (#faf4e6). Ofrece el máximo contraste y legibilidad a cualquier nivel de zoom sobre fondos complejos de selva.",
+    name: "2. Tinta Invertida",
+    class: "var-2-solid-ink"
+  },
+  3: {
+    title: "Variación 3: Trazo Sepia Translúcido (Translucent Ink Contour)",
+    desc: "Hexágono semitransparente con halo sepia de muy bajo impacto. Deja ver prácticamente todo el relieve, montañas y ríos que están debajo del hexágono sin ocultar la ilustración del mapa.",
+    name: "3. Trazo Translúcido",
+    class: "var-3-translucent"
+  },
+  4: {
+    title: "Variación 4: Sello con Ribete de Oro Viejo (Antique Gold Filigree)",
+    desc: "Marco hexagonal con doble filete dorado envejecido (#c49942) y fondo de pergamino marfil. Aspecto noble y expedicionario, ideal para representar las exploraciones financiadas por los Príncipes Mercantes.",
+    name: "4. Ribete Oro Viejo",
+    class: "var-4-gold-rim"
+  },
+  5: {
+    title: "Variación 5: Sello Sepia con Acento Botánico (Muted Earth Tint)",
+    desc: "Conserva la base del Sello Sepia tradicional, pero colorea sutilmente el glifo interior con pigmentos minerales apagados (verde musgo, azul río, carmesí peligro, ocre botín) para reconocimiento inmediato.",
+    name: "5. Acento Botánico",
+    class: "var-5-earth-accent"
+  },
+  6: {
+    title: "Variación 6: Hexágono Minimalista Puro (Minimal Pure Flat)",
+    desc: "Geometría depurada al extremo: contorno nítido de 1.5px, fondo plano marfil y glifo ultra-limpio. Cero sombras complejas ni biseles recargados. Máxima claridad cartográfica contemporánea.",
+    name: "6. Minimalista Plano",
+    class: "var-6-minimal-flat"
+  }
+};
+
+let activeVariation = 1;
+
+function renderHexPinHtml(iconKey, varNumber = activeVariation) {
+  const icon = FLAT_ICONS_DB[iconKey];
+  if (!icon) return "";
+  const varData = VARIATIONS_INFO[varNumber] || VARIATIONS_INFO[1];
+
+  return `
+    <div class="dnd-hex-pin ${varData.class}" 
+         style="--icon-muted-tint: ${icon.mutedColor};" 
+         title="${icon.name} (${varData.name})">
+      ${icon.svg}
+    </div>
+  `;
+}
+
+function switchVariation(varNum) {
+  activeVariation = varNum;
+
+  // Actualizar botones de navegación
+  document.querySelectorAll('.var-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.var == varNum);
+  });
+
+  // Actualizar textos informativos
+  const info = VARIATIONS_INFO[varNum];
+  document.getElementById('var-title').textContent = info.title;
+  document.getElementById('var-desc').textContent = info.desc;
+  document.getElementById('cta-active-var-name').textContent = info.name;
+
+  // Actualizar muestra en el comparador real de 128px
+  document.getElementById('hex-center-pin-slot').innerHTML = renderHexPinHtml('camp', varNum);
+
+  // Actualizar muestras en la tarjeta
+  const sampleKeys = ['camp', 'forest', 'danger', 'party'];
+  document.getElementById('var-sample-icons').innerHTML = sampleKeys
+    .map(key => renderHexPinHtml(key, varNum))
+    .join('');
+
+  // Actualizar mapa interactivo
+  document.querySelectorAll('.mock-pin-slot').forEach(slot => {
+    const iconKey = slot.dataset.icon;
+    slot.innerHTML = renderHexPinHtml(iconKey, varNum);
+  });
+
+  // Resaltar celdas en la cuadrícula de tarjetas
+  document.querySelectorAll('.var-cell').forEach(cell => {
+    cell.classList.toggle('active-preview', cell.dataset.var == varNum);
+  });
+}
+
+function renderCatalogGrid() {
+  const container = document.getElementById('icon-cards-container');
+  let html = "";
+
+  for (const [key, icon] of Object.entries(FLAT_ICONS_DB)) {
+    html += `
+      <div class="icon-card">
+        <div class="icon-card-header">
+          <div class="icon-title-wrap">
+            <span class="icon-old-emoji" title="Emoji anterior">${icon.oldEmoji}</span>
+            <span class="icon-name">${icon.name}</span>
+          </div>
+          <span class="icon-category-tag">${icon.category}</span>
+        </div>
+
+        <div class="icon-vars-row">
+          ${[1, 2, 3, 4, 5, 6].map(v => `
+            <div class="var-cell ${v === activeVariation ? 'active-preview' : ''}" 
+                 data-var="${v}" 
+                 onclick="switchVariation(${v})" 
+                 title="Ver ${VARIATIONS_INFO[v].name}">
+              ${renderHexPinHtml(key, v)}
+              <span class="var-cell-label">Var ${v}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        <p class="icon-desc">${icon.desc}</p>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', () => {
+  renderCatalogGrid();
+  switchVariation(5);
+});
+</script>
+
+</body>
+</html>

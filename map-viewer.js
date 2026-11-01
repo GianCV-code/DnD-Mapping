@@ -1,5 +1,5 @@
 // Visor de mapa con Pan & Zoom optimizado para ratón y gestos táctiles (Pinch-to-zoom)
-import { getMarkerType } from "./icons.js";
+import { getMarkerType, PARTY_TOKEN_DATA } from "./icons.js";
 
 export class MapViewer {
   constructor({
@@ -996,14 +996,14 @@ export class MapViewer {
       <div class="party-pulse-ring"></div>
       <div class="party-badge" title="Grupo de Aventureros ${hexTag}">
         <div class="party-badge-inner">
-          <span class="party-emoji">⚔️</span>
+          ${PARTY_TOKEN_DATA.svg}
         </div>
         <span class="party-tag">GRUPO</span>
       </div>
       <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
         <div class="pin-popup-header">
           <div class="pin-popup-title-wrap">
-            <span class="pin-popup-emoji">⚔️</span>
+            <span class="pin-popup-icon-wrap" style="color: ${PARTY_TOKEN_DATA.color};">${PARTY_TOKEN_DATA.svg}</span>
             <span class="pin-popup-title">Grupo de Aventureros</span>
           </div>
           ${hexTag ? `<span class="pin-popup-day">${hexTag}</span>` : ""}
@@ -1067,7 +1067,7 @@ export class MapViewer {
         <div class="pin-popup ${isTopArea ? "popup-bottom" : ""}">
           <div class="pin-popup-header">
             <div class="pin-popup-title-wrap">
-              <span class="pin-popup-emoji">${typeInfo.emoji}</span>
+              <span class="pin-popup-icon-wrap" style="color: ${typeInfo.color};">${typeInfo.svg}</span>
               <span class="pin-popup-title">${escapeHtml(hasTitle ? marker.title : typeInfo.label)}</span>
             </div>
             ${marker.day ? `<span class="pin-popup-day">${escapeHtml(marker.day)}</span>` : ""}
@@ -1081,7 +1081,7 @@ export class MapViewer {
       pinEl.innerHTML = `
         <div class="pin-badge" title="${escapeHtml(marker.title || typeInfo.label)}">
           <div class="pin-badge-inner">
-            <span class="pin-emoji">${typeInfo.emoji}</span>
+            ${typeInfo.svg}
           </div>
         </div>
         ${marker.resolved ? '<span class="pin-check">✓</span>' : ""}
